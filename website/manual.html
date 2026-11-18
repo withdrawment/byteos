@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Manual ByteOS installation</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <pre class="logo"> ____        _       ___  ____
+| __ ) _   _| |_ ___/ _ \/ ___|
+|  _ \| | | | __/ _ \ | | \___ \
+| |_) | |_| | ||  __/ |_| |___) |
+|____/ \__, |\__\___|\___/|____/
+       |___/  0.2 "Sprinkles"</pre>
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="docs.html">Docs</a>
+    <a href="install.html">Install</a>
+    <a href="manual.html">Manual install</a>
+    <a href="https://github.com/withdrawment/byteos">GitHub</a>
+  </nav>
+</header>
+
+<main>
+<h1>Manual installation</h1>
+<p class="lead">
+This walkthrough installs ByteOS to a raw disk image, then writes that image
+to a real disk. It is the same result as the guided installer, but every step
+is explicit.
+</p>
+
+<div class="note">
+<strong>Destructive.</strong> <code>dd</code> writes exactly where you point
+it. Double-check device names with <code>lsblk</code> before pressing Enter.
+One wrong letter can erase your main disk.
+</div>
+
+<h2>0. Checklist</h2>
+<ul>
+  <li>Windows with PowerShell, or Linux/macOS with a shell.</li>
+  <li>NASM, LLVM/Clang, Python 3, and QEMU if you build from source.</li>
+  <li>A 64 MiB or larger raw disk image for the VM.</li>
+  <li>A spare USB stick or disk for the finished installation.</li>
+  <li>Firmware set to legacy BIOS/CSM boot.</li>
+</ul>
+
+<h2>1. Get the source</h2>
+<pre><code>git clone https://github.com/withdrawment/byteos
+cd byteos</code></pre>
+<p>Or download a release ISO from
+<a href="https://github.com/withdrawment/byteos/releases">GitHub releases</a>
+and skip to step 3.</p>
+
+<h2>2. Build the ISO</h2>
+<p>On Windows:</p>
+<pre><code>.\build.ps1</code></pre>
+<p>This produces <code>ByteOS.iso</code>, <code>build\boot.bin</code>,
+<code>build\kernel.bin</code>, and <code>build\mbr.bin</code>. The build
+uses the project's own ISO writer; no external ISO tool is required.</p>
+
+<h2>3. Create the target disk image</h2>
+<p>64 MiB is plenty for ByteOS and its website:</p>
+<pre><code>qemu-img create -f raw byteos-disk.img 64M</code></pre>
+<p>On Windows, if <code>qemu-img</code> is not on PATH, use the copy in the
+QEMU installation folder.</p>
+
+<h2>4. Boot the live ISO with the target disk</h2>
+<pre><code>qemu-system-x86_64 -m 1024 -smp 4 \
+  -cdrom ByteOS.iso \
+  -drive file=byteos-disk.img,format=raw,if=ide \
+  -boot d</code></pre>
+<ul>
+  <li><code>-cdrom</code> is the live ISO.</li>
+  <li><code>-drive ...,if=ide</code> makes the target disk visible to the ATA driver.</li>
+  <li><code>-boot d</code> boots the CD first.</li>
+</ul>
+
+<h2>5. Install from the live console</h2>
+<p>At the <code>byteos&gt;</code> prompt:</p>
+<pre><code>byte-install</code></pre>
+<p>Answer the prompts. A typical session:</p>
+<pre><code>Installation disk [1-1]: 1
+Username: byte
+Password: ****
+Repeat password: ****
+Root password: ****
+Repeat root password: ****
+Hostname [byteos]: byteos
+Type INSTALL to erase the disk: INSTALL</code></pre>
+<p>The installer writes, in order:</p>
+<ol>
+  <li>the MBR at LBA 0, with one active partition at LBA 2048;</li>
+  <li>stage 2 at LBA 1;</li>
+  <li>the flat kernel at LBA 66;</li>
+  <li>a formatted ByteFS partition at LBA 2048;</li>
+  <li>the offline website, README, sample pages, and your account database.</li>
+</ol>
+<p>When it finishes, press <strong>R</strong> to reboot, or any other key to
+stay in the live shell.</p>
+
+<h2>6. Boot the installed disk image</h2>
+<pre><code>qemu-system-x86_64 -m 1024 -smp 4 \
+  -drive file=byteos-disk.img,format=raw,if=ide \
+  -boot c</code></pre>
+<p>You should see the ByteOS login screen. Sign in with the user you created.
+Run <code>fetch</code>, <code>start-desktop</code>, and open the browser's
+<code>www/index.html</code> to confirm everything is on disk.</p>
+
+<h2>7. Write the image to a real disk (optional)</h2>
+<p><strong>Linux/macOS:</strong></p>
+<pre><code>lsblk
+sudo dd if=byteos-disk.img of=/dev/sdX bs=4M status=progress conv=fsync</code></pre>
+<p>Replace <code>/dev/sdX</code> with the whole target device. Do not append a
+partition number. On macOS use <code>/dev/rdiskN</code>.</p>
+<p><strong>Windows:</strong> use Rufus in DD mode, or
+<a href="https://www.balena.io/etcher/">balenaEtcher</a>, and select
+<code>byteos-disk.img</code> as the source.</p>
+<p>Then boot the target machine in legacy BIOS/CSM mode. If the firmware
+offers a boot order, put the target disk first.</p>
+
+<h2>8. Alternative: install directly to the real disk</h2>
+<p>
+If the target disk is visible to your firmware as an ATA/IDE disk, you can
+boot the live ISO on the real machine and run <code>byte-install</code>
+directly, selecting that disk. This avoids the image-copy step. It is still
+destructive: check the model and size shown by the installer before confirming.
+</p>
+
+<h2>9. Verify the installation</h2>
+<pre><code>fetch
+ls
+cat README.TXT
+start-desktop</code></pre>
+<p>In the browser, open <code>www/index.html</code> and
+<code>www/manual.html</code>. In Files, select <code>home/notes.html</code> and
+press F4, make a small edit, and save with Ctrl+S. Reboot and confirm the edit
+survived.</p>
+
+<h2>Manual layout reference</h2>
+<pre><code>LBA 0        MBR and partition table
+LBA 1..65    stage 2
+LBA 66..     kernel
+LBA 2048..   ByteFS partition (MBR type 0x42)
+
+ByteFS sector 0..3     superblock and directory
+ByteFS sector 8..      file contents</code></pre>
+<p>
+The supported way to create this layout is <code>byte-install</code> or this
+guide. Hand-writing sectors is possible but offers no advantage over the
+installer.
+</p>
+
+<h2>Troubleshooting</h2>
+<ul>
+  <li><strong>No disks in the installer:</strong> attach the disk with
+      <code>if=ide</code>, or enable IDE/legacy storage on the machine.</li>
+  <li><strong>QEMU boots the ISO again:</strong> use <code>-boot c</code> and
+      omit <code>-cdrom</code> when booting the installed disk.</li>
+  <li><strong>Login fails:</strong> usernames are case-insensitive; passwords
+      are not. Reinstall if the password is lost.</li>
+  <li><strong>No HTML page in the browser:</strong> type <code>u</code> and
+      enter <code>www/index.html</code>, or run <code>ls</code> to confirm the
+      files were installed.</li>
+</ul>
+
+<p><a href="install.html">Back to the guided install page</a></p>
+</main>
+
+<footer><p>ByteOS 0.2 "Sprinkles" manual installation guide.</p></footer>
+</body>
+</html>

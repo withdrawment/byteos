@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ByteOS - a tiny 64-bit bare-metal system</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <pre class="logo"> ____        _       ___  ____
+| __ ) _   _| |_ ___/ _ \/ ___|
+|  _ \| | | | __/ _ \ | | \___ \
+| |_) | |_| | ||  __/ |_| |___) |
+|____/ \__, |\__\___|\___/|____/
+       |___/  0.2 "Sprinkles"</pre>
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="docs.html">Docs</a>
+    <a href="install.html">Install</a>
+    <a href="manual.html">Manual install</a>
+    <a href="https://github.com/withdrawment/byteos">GitHub</a>
+  </nav>
+</header>
+
+<main>
+<h1>A 64-bit operating system you can read end to end.</h1>
+<p class="lead">
+ByteOS boots from its own hand-built El Torito ISO and MBR, enters long mode
+with no GRUB and no libc, and gives you a console, a tiny desktop, a local
+web browser, a file explorer, a text editor, and an installer.
+</p>
+
+<p class="buttons">
+  <a class="button" href="https://github.com/withdrawment/byteos/releases">Download releases</a>
+  <a class="button ghost" href="install.html">Install guide</a>
+  <a class="button ghost" href="https://github.com/withdrawment/byteos">Source code</a>
+</p>
+
+<h2>What is inside</h2>
+<div class="grid">
+  <section>
+    <h3>fetch</h3>
+    <p>A fastfetch-style system summary with ByteOS ASCII art, CPU, memory,
+    uptime, boot mode, disk, and account details.</p>
+  </section>
+  <section>
+    <h3>ByteDesktop</h3>
+    <p>Enter <code>start-desktop</code> at the console. A text-mode desktop
+    launches files, browser, editor, terminal, and fetch.</p>
+  </section>
+  <section>
+    <h3>Local web browser</h3>
+    <p>Reads HTML files from ByteFS and renders headings, paragraphs, lists,
+    links, and preformatted text. This website ships inside the OS.</p>
+  </section>
+  <section>
+    <h3>byte-install</h3>
+    <p>An archinstall-style guided installer. Pick an ATA disk, create a
+    user, set the user and root passwords, and write a bootable system.</p>
+  </section>
+  <section>
+    <h3>Editors and files</h3>
+    <p>A file explorer, a terminal with the full ByteOS shell, and an HTML
+    editor that saves straight to the ByteFS disk.</p>
+  </section>
+  <section>
+    <h3>Small on purpose</h3>
+    <p>No third-party bootloader, no libc, no networking stack. Every line is
+    in the repository, from the MBR to the donut renderer.</p>
+  </section>
+</div>
+
+<h2>Try it in QEMU</h2>
+<pre><code>qemu-img create -f raw byteos-disk.img 64M
+qemu-system-x86_64 -m 1024 -smp 4 \
+  -cdrom ByteOS.iso \
+  -drive file=byteos-disk.img,format=raw,if=ide \
+  -boot d</code></pre>
+<p>
+Then run <code>fetch</code>, <code>donut</code>, or <code>start-desktop</code>.
+To install, run <code>byte-install</code> and choose the 64 MiB disk.
+</p>
+
+<h2>Project links</h2>
+<ul>
+  <li><a href="https://github.com/withdrawment/byteos">Source repository</a></li>
+  <li><a href="https://github.com/withdrawment/byteos/releases">Releases and ISO downloads</a></li>
+  <li><a href="docs.html">Documentation</a></li>
+  <li><a href="manual.html">Manual installation</a></li>
+</ul>
+</main>
+
+<footer>
+  <p>ByteOS 0.2 "Sprinkles" - built from scratch in 2026.</p>
+  <p>This copy lives in the ByteOS image and is readable offline in the built-in browser.</p>
+</footer>
+</body>
+</html>

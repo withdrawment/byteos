@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ByteOS documentation</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <pre class="logo"> ____        _       ___  ____
+| __ ) _   _| |_ ___/ _ \/ ___|
+|  _ \| | | | __/ _ \ | | \___ \
+| |_) | |_| | ||  __/ |_| |___) |
+|____/ \__, |\__\___|\___/|____/
+       |___/  0.2 "Sprinkles"</pre>
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="docs.html">Docs</a>
+    <a href="install.html">Install</a>
+    <a href="manual.html">Manual install</a>
+    <a href="https://github.com/withdrawment/byteos">GitHub</a>
+  </nav>
+</header>
+
+<main>
+<h1>ByteOS documentation</h1>
+<p class="lead">Everything you need to boot, explore, install, and rebuild ByteOS 0.2.</p>
+
+<h2>Console commands</h2>
+<table>
+<tr><th>Command</th><th>What it does</th></tr>
+<tr><td><code>help</code></td><td>Show the command list.</td></tr>
+<tr><td><code>fetch</code></td><td>Fastfetch-style system summary and ASCII art.</td></tr>
+<tr><td><code>specs</code></td><td>Full CPUID, memory, firmware, timer, and RTC report.</td></tr>
+<tr><td><code>memmap</code></td><td>Raw BIOS E820 memory map.</td></tr>
+<tr><td><code>about</code></td><td>Project background.</td></tr>
+<tr><td><code>donut</code></td><td>Spinning z-buffered ASCII donut. Any key returns.</td></tr>
+<tr><td><code>start-desktop</code></td><td>Launch ByteDesktop.</td></tr>
+<tr><td><code>byte-install</code></td><td>Guided installer for an ATA/IDE disk.</td></tr>
+<tr><td><code>ls</code></td><td>List files on the installed ByteFS disk.</td></tr>
+<tr><td><code>cat FILE</code></td><td>Print a text file from ByteFS.</td></tr>
+<tr><td><code>whoami</code></td><td>Show the signed-in account.</td></tr>
+<tr><td><code>su</code></td><td>Switch to root with the root password.</td></tr>
+<tr><td><code>passwd</code></td><td>Change the current account password.</td></tr>
+<tr><td><code>logo</code></td><td>Redraw the boot screen.</td></tr>
+<tr><td><code>clear</code></td><td>Clear the console.</td></tr>
+<tr><td><code>reboot</code></td><td>Warm reboot.</td></tr>
+</table>
+<p>Commands are case-insensitive. Aliases: <code>sysinfo</code> for specs,
+<code>cls</code> for clear, <code>?</code> for help.</p>
+
+<h2>ByteDesktop</h2>
+<p>Run <code>start-desktop</code> from the console. Use the arrow keys to pick
+an app and Enter to open it. F10 or Esc returns to the desktop; the desktop
+itself returns to the console when you choose Exit.</p>
+<ul>
+  <li><strong>Files</strong> - browse ByteFS. Enter opens HTML in the browser; F4 opens it in the editor.</li>
+  <li><strong>Browser</strong> - local HTML reader. Type a path with <kbd>u</kbd>, follow numbered links, Backspace goes back, and <kbd>e</kbd> edits the current page.</li>
+  <li><strong>Editor</strong> - HTML-only editor. Ctrl+S or F2 saves to ByteFS, Esc leaves.</li>
+  <li><strong>Terminal</strong> - the full ByteOS shell inside the desktop. Type <code>exit</code> to return.</li>
+  <li><strong>Fetch</strong> - the same system summary as the console command.</li>
+</ul>
+
+<h2>Disk layout</h2>
+<pre><code>LBA 0          MBR (ByteOS stage 1)
+LBA 1..65      stage 2 + page-table setup
+LBA 66..       flat kernel
+LBA 2048..     ByteFS partition (type 0x42)
+
+ByteFS:
+  sector 0       superblock + 32 directory entries
+  sector 8..     contiguous file data</code></pre>
+<p>ByteFS stores full paths such as <code>www/index.html</code> and
+<code>etc/passwd</code>. It is intentionally simple: no journal, no
+permissions, no directories on disk. Account passwords are stored as FNV-1a
+hashes, which is appropriate for a demo OS but not production security.</p>
+
+<h2>Boot path</h2>
+<ol>
+  <li>The ISO's El Torito catalog loads the full boot image at 0x7C00.</li>
+  <li>On a hard disk, the ByteOS MBR loads stage 2 from LBA 1, then stage 2
+      reads the kernel from LBA 66.</li>
+  <li>Stage 2 enables A20, gathers the E820 map, sets VGA text mode, builds
+      identity-mapped 2 MiB pages, and enters long mode.</li>
+  <li>The kernel clears BSS, detects the CPU, calibrates the TSC, probes ATA,
+      mounts ByteFS when booted from disk, shows the login screen, and starts
+      the shell.</li>
+</ol>
+
+<h2>Limitations</h2>
+<ul>
+  <li>Legacy BIOS / CSM only. Native UEFI is not implemented.</li>
+  <li>ATA PIO (IDE) disks only. AHCI, NVMe, and USB storage are not supported.</li>
+  <li>No networking. The browser reads local files; external links show their URL.</li>
+  <li>Text mode 80x25, one task, ring 0 only.</li>
+  <li>Installation erases the selected disk. Use a spare disk or QEMU image.</li>
+</ul>
+
+<h2>Build from source</h2>
+<pre><code>git clone https://github.com/withdrawment/byteos
+cd byteos
+.\build.ps1
+.\run.ps1</code></pre>
+<p>On Windows the build needs NASM, LLVM/Clang, Python 3, and QEMU for
+<code>run.ps1</code>. See the repository README for details.</p>
+
+<p>
+  <a href="install.html">Automated installation</a> |
+  <a href="manual.html">Manual installation</a> |
+  <a href="https://github.com/withdrawment/byteos">GitHub</a>
+</p>
+</main>
+
+<footer><p>ByteOS 0.2 "Sprinkles" documentation.</p></footer>
+</body>
+</html>

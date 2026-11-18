@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Install ByteOS</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <pre class="logo"> ____        _       ___  ____
+| __ ) _   _| |_ ___/ _ \/ ___|
+|  _ \| | | | __/ _ \ | | \___ \
+| |_) | |_| | ||  __/ |_| |___) |
+|____/ \__, |\__\___|\___/|____/
+       |___/  0.2 "Sprinkles"</pre>
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="docs.html">Docs</a>
+    <a href="install.html">Install</a>
+    <a href="manual.html">Manual install</a>
+    <a href="https://github.com/withdrawment/byteos">GitHub</a>
+  </nav>
+</header>
+
+<main>
+<h1>Install ByteOS</h1>
+<p class="lead">The easiest path is the live ISO plus <code>byte-install</code>.
+The installer takes about a minute.</p>
+
+<div class="note">
+<strong>Read this first.</strong> ByteOS installs to a whole disk and erases
+everything on it. Use a spare disk, a USB stick, or a virtual disk. Do not
+select the disk that holds your current operating system.
+</div>
+
+<h2>What you need</h2>
+<ul>
+  <li>A PC that can boot legacy BIOS or CSM mode (UEFI-only machines need CSM enabled).</li>
+  <li>An ATA/IDE disk. AHCI, NVMe, and USB storage are not supported by the installer.</li>
+  <li>A USB stick for the live ISO, or a virtual machine.</li>
+  <li>At least 32 MiB free on the target disk. 64 MiB or more recommended.</li>
+</ul>
+
+<h2>Step 1: Download the ISO</h2>
+<p>
+Get <code>ByteOS.iso</code> from the
+<a href="https://github.com/withdrawment/byteos/releases">GitHub releases page</a>.
+If you build from source, run <code>.\build.ps1</code> and use the ISO in the
+project root.
+</p>
+
+<h2>Step 2: Write the ISO to USB</h2>
+<ul>
+  <li><strong>Rufus</strong> (Windows): choose the ISO, select GPT or MBR as
+      required by your firmware, and write in DD mode if offered.</li>
+  <li><strong>balenaEtcher</strong>: select the ISO and the USB stick, then Flash.</li>
+  <li><strong>Linux/macOS</strong>: <code>sudo dd if=ByteOS.iso of=/dev/sdX bs=4M status=progress</code>
+      where <code>/dev/sdX</code> is the whole USB disk, not a partition.</li>
+</ul>
+
+<h2>Step 3: Boot the live environment</h2>
+<p>
+Open the firmware boot menu, choose the USB device, and make sure the system
+boots in legacy BIOS/CSM mode. ByteOS starts at a <code>byteos&gt;</code>
+prompt. This live environment is read-only; the disk is untouched until you
+run the installer.
+</p>
+<p>Try the live commands:</p>
+<pre><code>fetch
+start-desktop
+donut</code></pre>
+
+<h2>Step 4: Run byte-install</h2>
+<pre><code>byte-install</code></pre>
+<p>The installer asks for:</p>
+<ol>
+  <li><strong>Installation disk</strong> - pick the number of the spare ATA disk. Check the model and size.</li>
+  <li><strong>Username</strong> - 1 to 31 characters; letters, digits, dot, dash, underscore.</li>
+  <li><strong>User password</strong> - typed twice, hidden with asterisks.</li>
+  <li><strong>Root password</strong> - typed twice, hidden with asterisks.</li>
+  <li><strong>Hostname</strong> - press Enter for <code>byteos</code>.</li>
+  <li><strong>Confirmation</strong> - type <code>INSTALL</code> in capitals.</li>
+</ol>
+<p>
+The installer writes the MBR, stage 2, kernel, ByteFS partition, this website,
+and your account database, then flushes the disk and offers a reboot.
+</p>
+
+<h2>Step 5: Boot from the disk</h2>
+<p>
+Remove the USB stick (or detach the ISO in your VM), then boot the machine
+again. ByteOS shows a login screen. Sign in with the username and password
+you created. The root account is available with <code>su</code>.
+</p>
+
+<h2>Test it in QEMU</h2>
+<p>Create a spare virtual disk, boot the ISO with that disk attached, and install:</p>
+<pre><code>qemu-img create -f raw byteos-disk.img 64M
+
+qemu-system-x86_64 -m 1024 -smp 4 \
+  -cdrom ByteOS.iso \
+  -drive file=byteos-disk.img,format=raw,if=ide \
+  -boot d</code></pre>
+<p>Inside the live console:</p>
+<pre><code>byte-install</code></pre>
+<p>Choose disk 1, create your account, and confirm. Then shut down and boot
+the installed disk:</p>
+<pre><code>qemu-system-x86_64 -m 1024 -smp 4 \
+  -drive file=byteos-disk.img,format=raw,if=ide \
+  -boot c</code></pre>
+
+<h2>Troubleshooting</h2>
+<ul>
+  <li><strong>The installer lists no disks.</strong> The disk must be visible
+      as a legacy ATA/IDE device. In QEMU use <code>-drive ...,if=ide</code>.
+      On real hardware, enable IDE/legacy storage mode if the firmware offers it.</li>
+  <li><strong>The machine will not boot after install.</strong> Check that the
+      firmware is in BIOS/CSM mode and that the target disk is first in the
+      boot order. ByteOS does not support UEFI boot yet.</li>
+  <li><strong>The installer refuses the disk.</strong> You selected the disk
+      ByteOS is currently running from. Boot the ISO and install to a different disk.</li>
+  <li><strong>The browser shows a URL instead of a page.</strong> This is
+      expected for external links; ByteOS has no network stack.</li>
+</ul>
+
+<p>
+Prefer to prepare a disk yourself? See the
+<a href="manual.html">manual installation guide</a>.
+</p>
+</main>
+
+<footer><p>ByteOS 0.2 "Sprinkles" installer documentation.</p></footer>
+</body>
+</html>
