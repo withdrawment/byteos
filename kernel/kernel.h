@@ -9,7 +9,7 @@
 #define VGA_MEMORY ((volatile uint16_t *)0xB8000)
 
 #define BOOT_INFO_ADDR 0x5000
-#define BOOT_MAGIC     0x42595445u   /* "BYTE" */
+#define BOOT_MAGIC     0x42595445u    
 
 #define BYTEOS_VERSION "0.2"
 #define BYTEOS_CODENAME "Sprinkles"
@@ -71,7 +71,7 @@ typedef struct {
     int second;
 } rtc_time_t;
 
-/* core.c */
+ 
 extern boot_info_t *g_boot;
 extern int g_boot_ok;
 extern uint32_t g_e820_count;
@@ -153,7 +153,7 @@ void reboot(void);
 #define KEY_F11   0x11A
 #define KEY_F12   0x11B
 
-/* ui.c */
+ 
 void home_screen(void);
 void help_screen(void);
 void specs_screen(void);
@@ -161,10 +161,10 @@ void about_screen(void);
 void memmap_screen(void);
 void shell(void);
 
-/* donut.c */
+ 
 void donut_mode(void);
 
-/* ata.c */
+ 
 #define ATA_MAX_DISKS 4
 
 typedef struct {
@@ -184,25 +184,36 @@ int ata_write_sectors(ata_disk_t *d, uint32_t lba, uint32_t count,
                       const void *buf);
 int ata_flush(ata_disk_t *d);
 
-/* install.c */
+ 
 void install_wizard(void);
 
-/* fetch.c */
+ 
 void fetch_screen(void);
 
-/* desktop.c */
+ 
 void desktop(void);
 int desktop_active(void);
 void app_screen(const char *title, const char *hint);
 void app_footer(const char *text);
 
-/* browser.c */
+ 
+int win95_desktop(void);
+
+ 
+void mouse_init(void);
+void mouse_poll(void);
+void mouse_flush(void);
+void mouse_get_state(int *x, int *y, int *buttons);
+int mouse_take_click(void);
+int mouse_take_release(void);
+
+ 
 void browser_app(const char *path);
 
-/* editor.c */
+ 
 void editor_app(const char *path);
 
-/* auth.c */
+ 
 int auth_load(void);
 int auth_configured(void);
 const char *auth_username(void);
@@ -214,11 +225,11 @@ int auth_passwd(void);
 int auth_set_credentials(const char *user, const char *password,
                          const char *root_password, const char *host);
 
-/* ui.c */
+ 
 int console_read_line(char *buf, size_t cap, int mask);
 void shell_set_exit_mode(int allow);
 
-/* bfs.c */
+ 
 #define BFS_PART_LBA 2048
 #define BFS_MAX_FILES 32
 #define BFS_NAME_LEN 40
@@ -233,6 +244,14 @@ typedef struct __attribute__((packed)) {
 
 #define BFS_FILE_USED 1
 #define BFS_FILE_HTML 2
+#define BFS_FILE_DIR  4
+
+typedef struct {
+    char name[BFS_NAME_LEN];
+    uint32_t size;
+    int is_dir;
+    int html;
+} bfs_dir_entry_t;
 
 int bfs_mount(int slot, uint32_t part_lba);
 int bfs_format(int slot, uint32_t part_lba, uint32_t end_lba);
@@ -244,7 +263,16 @@ int bfs_lookup(const char *path);
 int bfs_read(const char *path, void *buf, uint32_t cap, uint32_t *out_len);
 int bfs_add(const char *path, const void *data, uint32_t len, int is_html);
 int bfs_write(const char *path, const void *data, uint32_t len);
+int bfs_mkdir(const char *path);
+int bfs_unlink(const char *path);
+int bfs_rmdir(const char *path);
+int bfs_exists(const char *path);
+int bfs_is_dir(const char *path);
+int bfs_list_dir(const char *abs_path, bfs_dir_entry_t *out, int max);
 uint32_t bfs_free_bytes(void);
+uint32_t bfs_used_bytes(void);
 int bfs_is_html(const char *path);
+
+void path_normalize(const char *cwd, const char *input, char *out, size_t cap);
 
 #endif

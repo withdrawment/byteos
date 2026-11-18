@@ -1,6 +1,6 @@
 #include "kernel.h"
 
-/* ---------------------------------------------------------------- port I/O */
+ 
 static inline void outb(uint16_t port, uint8_t value)
 {
     __asm__ volatile("outb %0, %1" : : "a"(value), "Nd"(port));
@@ -33,15 +33,15 @@ static inline void cpuid(uint32_t leaf, uint32_t subleaf, uint32_t *a,
                      : "a"(leaf), "c"(subleaf));
 }
 
-/* ---------------------------------------------------------------- TSC */
+ 
 uint64_t calibrate_tsc(void)
 {
-    /* PIT channel 2, mode 0, 11932 ticks == about 10 ms. */
+     
     uint8_t p61 = inb(0x61);
-    outb(0x61, (uint8_t)(p61 & ~0x03));      /* gate low, speaker off */
-    outb(0x43, 0xB0);                        /* channel 2, mode 0 */
-    outb(0x42, 0x9C);                        /* 11932 low byte */
-    outb(0x42, 0x2E);                        /* 11932 high byte */
+    outb(0x61, (uint8_t)(p61 & ~0x03));       
+    outb(0x43, 0xB0);                         
+    outb(0x42, 0x9C);                         
+    outb(0x42, 0x2E);                         
     outb(0x61, (uint8_t)((p61 & ~0x02) | 0x01));
 
     uint64_t t0 = rdtsc_ordered();
@@ -61,7 +61,7 @@ uint64_t calibrate_tsc(void)
     return hz;
 }
 
-/* ---------------------------------------------------------------- CPU */
+ 
 static void trim_brand(char *dst, const char *src)
 {
     int end = 48;
@@ -129,8 +129,8 @@ void detect_cpu(void)
     g_hypervisor = (int)((c >> 31) & 1u);
     uint32_t best_cpus = (b >> 16) & 0xFFu;
 
-    /* Topology leaves can report only one package; take the largest sane
-       count we can find. */
+     
+
     if (g_max_leaf >= 0x1Fu) {
         cpuid(0x1Fu, 0, &a, &b, &c, &d);
         uint32_t n = b & 0xFFFFu;
@@ -144,7 +144,7 @@ void detect_cpu(void)
             best_cpus = n;
     }
 
-    /* AMD extended topology: cores per package and threads per core. */
+     
     if (g_max_ext >= 0x80000008u) {
         cpuid(0x80000008u, 0, &a, &b, &c, &d);
         uint32_t cores = (c & 0xFFu) + 1u;
@@ -177,7 +177,7 @@ void detect_cpu(void)
     }
 }
 
-/* ---------------------------------------------------------------- memory */
+ 
 void scan_memory(void)
 {
     g_e820_count = 0;
@@ -206,7 +206,7 @@ void scan_memory(void)
     }
 }
 
-/* ---------------------------------------------------------------- RTC */
+ 
 static uint8_t cmos_read(uint8_t reg)
 {
     outb(0x70, reg);
@@ -288,7 +288,7 @@ int rtc_read(rtc_time_t *out)
     return 0;
 }
 
-/* ---------------------------------------------------------------- keyboard */
+ 
 static const char keymap[128] = {
     [0x01] = 27, [0x02] = '1', [0x03] = '2', [0x04] = '3', [0x05] = '4',
     [0x06] = '5', [0x07] = '6', [0x08] = '7', [0x09] = '8', [0x0A] = '9',
@@ -326,8 +326,11 @@ static int g_ctrl;
 static int read_scancode(void)
 {
     for (int i = 0; i < 100000; i++) {
-        if (inb(0x64) & 0x01)
+        uint8_t st = inb(0x64);
+        if ((st & 0x21) == 0x01)
             return inb(0x60);
+        if (st & 0x20)
+            return -1;
     }
     return -1;
 }
@@ -335,7 +338,10 @@ static int read_scancode(void)
 int kbd_getkey(void)
 {
     for (;;) {
-        if (!(inb(0x64) & 0x01))
+        uint8_t status = inb(0x64);
+        if (!(status & 0x01))
+            return -1;
+        if (status & 0x20)
             return -1;
 
         uint8_t sc = inb(0x60);
@@ -414,8 +420,8 @@ int kbd_getchar(void)
     }
 }
 
-/* Block until a key is available. The full-screen apps use this so they
-   paint once per key press instead of repainting in a tight loop. */
+ 
+
 int kbd_waitkey(void)
 {
     for (;;) {
@@ -434,7 +440,197 @@ void kbd_drain(void)
         (void)inb(0x60);
 }
 
-/* ---------------------------------------------------------------- reboot */
+static int g_mouse_ready;
+static int g_mouse_x = 320;
+static int g_mouse_y = 240;
+static uint8_t g_mouse_buttons;
+static uint8_t g_mouse_packet[3];
+static int g_mouse_index;
+static int g_click_flag;
+static int g_release_flag;
+
+static int kbc_wait_write(void)
+{
+    for (int i = 0; i < 100000; i++) {
+        if (!(inb(0x64) & 0x02))
+            return 0;
+    }
+    return -1;
+}
+
+static int kbc_wait_read(void)
+{
+    for (int i = 0; i < 100000; i++) {
+        if (inb(0x64) & 0x01)
+            return 0;
+    }
+    return -1;
+}
+
+static void kbc_drain_output(void)
+{
+    for (int i = 0; i < 128; i++) {
+        uint8_t st = inb(0x64);
+        if (!(st & 0x01))
+            break;
+        (void)inb(0x60);
+    }
+}
+
+static int aux_command(uint8_t value)
+{
+    if (kbc_wait_write() != 0)
+        return -1;
+    outb(0x64, 0xD4);
+    if (kbc_wait_write() != 0)
+        return -1;
+    outb(0x60, value);
+
+    for (int i = 0; i < 100000; i++) {
+        uint8_t st = inb(0x64);
+        if (!(st & 0x01))
+            continue;
+        uint8_t b = inb(0x60);
+        if (st & 0x20) {
+            if (b == 0xFA)
+                return 0;
+        }
+    }
+    return -1;
+}
+
+void mouse_flush(void)
+{
+    g_mouse_index = 0;
+    g_mouse_buttons = 0;
+    g_click_flag = 0;
+    g_release_flag = 0;
+    for (int i = 0; i < 128; i++) {
+        uint8_t st = inb(0x64);
+        if (!(st & 0x01))
+            break;
+        if (!(st & 0x20))
+            break;
+        (void)inb(0x60);
+    }
+}
+
+void mouse_init(void)
+{
+    if (g_mouse_ready)
+        return;
+
+    if (kbc_wait_write() == 0)
+        outb(0x64, 0xA8);
+
+    kbc_drain_output();
+
+    if (kbc_wait_write() != 0)
+        return;
+    outb(0x64, 0x20);
+    if (kbc_wait_read() != 0)
+        return;
+    uint8_t cfg = inb(0x60);
+    cfg = (uint8_t)((cfg | 0x43) & ~0xB0);
+
+    if (kbc_wait_write() != 0)
+        return;
+    outb(0x64, 0x60);
+    if (kbc_wait_write() != 0)
+        return;
+    outb(0x60, cfg);
+
+    aux_command(0xF6);
+    aux_command(0xF3);
+    aux_command(0x64);
+    aux_command(0xE8);
+    aux_command(0x03);
+    aux_command(0xF4);
+
+    g_mouse_ready = 1;
+    g_mouse_x = 320;
+    g_mouse_y = 240;
+    mouse_flush();
+}
+
+void mouse_poll(void)
+{
+    if (!g_mouse_ready)
+        return;
+
+    for (int guard = 0; guard < 64; guard++) {
+        uint8_t st = inb(0x64);
+        if (!(st & 0x01))
+            break;
+        if (!(st & 0x20))
+            break;
+
+        uint8_t b = inb(0x60);
+        if (g_mouse_index == 0 && !(b & 0x08))
+            continue;
+
+        g_mouse_packet[g_mouse_index++] = b;
+        if (g_mouse_index < 3)
+            continue;
+        g_mouse_index = 0;
+
+        uint8_t flags = g_mouse_packet[0];
+        if (flags & 0xC0)
+            continue;
+
+        int dx = g_mouse_packet[1];
+        int dy = g_mouse_packet[2];
+        if (flags & 0x10)
+            dx -= 256;
+        if (flags & 0x20)
+            dy -= 256;
+
+        g_mouse_x += dx;
+        g_mouse_y -= dy;
+        if (g_mouse_x < 0)
+            g_mouse_x = 0;
+        if (g_mouse_x > 639)
+            g_mouse_x = 639;
+        if (g_mouse_y < 0)
+            g_mouse_y = 0;
+        if (g_mouse_y > 479)
+            g_mouse_y = 479;
+
+        uint8_t buttons = (uint8_t)(flags & 0x07);
+        if ((buttons & 1) && !(g_mouse_buttons & 1))
+            g_click_flag = 1;
+        if (!(buttons & 1) && (g_mouse_buttons & 1))
+            g_release_flag = 1;
+        g_mouse_buttons = buttons;
+    }
+}
+
+void mouse_get_state(int *x, int *y, int *buttons)
+{
+    if (x)
+        *x = g_mouse_x;
+    if (y)
+        *y = g_mouse_y;
+    if (buttons)
+        *buttons = g_mouse_buttons;
+}
+
+int mouse_take_click(void)
+{
+    int v = g_click_flag;
+    g_click_flag = 0;
+    return v;
+}
+
+int mouse_take_release(void)
+{
+    int v = g_release_flag;
+    g_release_flag = 0;
+    return v;
+}
+
+
+ 
 __attribute__((noreturn)) void reboot(void)
 {
     while (inb(0x64) & 0x02)

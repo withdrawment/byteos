@@ -1,6 +1,6 @@
-; ByteOS disk MBR
-; Loads the stage-2 image from LBA 1 to 0x7E00, then jumps to it.
-; The partition table is filled in by the ByteOS installer.
+
+
+
 
 bits 16
 org 0x7C00
@@ -80,7 +80,7 @@ fail_msg:
 
     times 446 - ($ - $$) db 0
 
-; Partition table (patched by byte-install).
+
     times 64 db 0
 
     dw 0xAA55

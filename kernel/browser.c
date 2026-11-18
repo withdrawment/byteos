@@ -64,7 +64,7 @@ static void build_str(char *dst, size_t cap, const char *a, const char *b)
     dst[n] = 0;
 }
 
-/* ------------------------------------------------------------ page buffer */
+ 
 static void page_reset(void)
 {
     g_line_count = 1;
@@ -155,7 +155,7 @@ static void page_text(const char *s)
         page_char(*s++);
 }
 
-/* ------------------------------------------------------------ HTML parser */
+ 
 static int tag_name_eq(const char *a, const char *b)
 {
     return str_eq_ci(a, b);
@@ -423,7 +423,7 @@ static void render_html(const char *s)
     page_newline();
 }
 
-/* --------------------------------------------------------------- loading */
+ 
 static int read_page(const char *path, uint32_t *out_len)
 {
     if (bfs_mounted()) {

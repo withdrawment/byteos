@@ -1,7 +1,7 @@
 #include "kernel.h"
 
-/* Legacy ATA PIO driver.  Four IDE slots: primary master/slave,
-   secondary master/slave.  LBA28 only, one sector per command. */
+ 
+
 
 static ata_disk_t g_disks[ATA_MAX_DISKS];
 static int g_ata_ready;

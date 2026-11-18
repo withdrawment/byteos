@@ -7,6 +7,7 @@
 #define C_ACC   VGA_ATTR(YELLOW, BLACK)
 #define C_ART   VGA_ATTR(LIGHT_MAGENTA, BLACK)
 #define C_BAR   VGA_ATTR(BLACK, CYAN)
+#define C_YELLOW VGA_ATTR(YELLOW, BLACK)
 
 static void centered(int row, const char *text, uint8_t attr)
 {
@@ -46,12 +47,12 @@ static void draw_logo(void)
         centered(2 + i, donut_art[i], C_ART);
 
     static const char *glyphs[6][5] = {
-        { "#### ", "#   #", "#### ", "#   #", "#### " }, /* B */
-        { "#   #", "#   #", " # # ", "  #  ", "  #  " }, /* Y */
-        { "#####", "  #  ", "  #  ", "  #  ", "  #  " }, /* T */
-        { "#####", "#    ", "#### ", "#    ", "#####" }, /* E */
-        { " ### ", "#   #", "#   #", "#   #", " ### " }, /* O */
-        { " ####", "#    ", " ### ", "    #", "#### " }  /* S */
+        { "#### ", "#   #", "#### ", "#   #", "#### " },  
+        { "#   #", "#   #", " # # ", "  #  ", "  #  " },  
+        { "#####", "  #  ", "  #  ", "  #  ", "  #  " },  
+        { "#####", "#    ", "#### ", "#    ", "#####" },  
+        { " ### ", "#   #", "#   #", "#   #", " ### " },  
+        { " ####", "#    ", " ### ", "    #", "#### " }   
     };
 
     for (int r = 0; r < 5; r++) {
@@ -115,7 +116,7 @@ void home_screen(void)
     console_set_attr(VGA_ATTR(LIGHT_GRAY, BLACK));
 }
 
-/* ---------------------------------------------------------------- help */
+ 
 static void padded(const char *s, int width)
 {
     int n = 0;
@@ -129,13 +130,15 @@ static void padded(const char *s, int width)
     }
 }
 
-static void help_line(const char *cmd, const char *desc)
+static void help_cell(int row, int col, const char *cmd, const char *desc)
 {
-    console_puts("  ");
-    console_set_attr(C_ACC);
-    padded(cmd, 14);
-    console_set_attr(C_DIM);
-    kprintf("%s\n", desc);
+    vga_puts_at(row, col, cmd, C_ACC);
+    int len = (int)kstrlen(cmd);
+    while (len < 14) {
+        vga_put_at(row, col + len, ' ', C_DIM);
+        len++;
+    }
+    vga_puts_at(row, col + 14, desc, C_DIM);
 }
 
 void help_screen(void)
@@ -147,27 +150,49 @@ void help_screen(void)
     kprintf("COMMANDS\n");
     console_set_attr(C_DARK);
     kprintf("--------------------------------------------------------------------------------\n");
-    help_line("help", "show this command list");
-    help_line("fetch", "fastfetch-style system summary");
-    help_line("start-desktop", "launch ByteDesktop");
-    help_line("byte-install", "install ByteOS to an ATA disk");
-    help_line("specs", "full CPU, memory and timing report");
-    help_line("memmap", "BIOS E820 memory map");
-    help_line("ls / cat", "list or print ByteFS files");
-    help_line("whoami / su", "account and root access");
-    help_line("passwd", "change your password");
-    help_line("about", "what ByteOS is made of");
-    help_line("donut", "spin the ASCII donut (any key returns)");
-    help_line("logo", "redraw the boot screen");
-    help_line("clear", "clear the screen");
-    help_line("reboot", "warm restart the machine");
-    console_putc('\n');
+
+    console_set_attr(C_ACC);
+    vga_puts_at(4, 2, "SYSTEM", C_ACC);
+    vga_puts_at(4, 41, "FILES / SHELL", C_ACC);
+
+    static const char *sys_cmd[15] = {
+        "help", "fetch", "start-desktop", "byte-install", "specs",
+        "memmap", "about", "donut", "logo", "clear",
+        "reboot", "version", "lsblk", "df", "free"
+    };
+    static const char *sys_desc[15] = {
+        "show this command list", "system summary", "choose a desktop",
+        "install to an ATA disk", "CPU, memory report", "BIOS E820 map",
+        "about ByteOS", "spinning ASCII donut", "redraw the boot screen",
+        "clear the screen", "warm restart", "version banner",
+        "list block devices", "filesystem usage", "memory usage"
+    };
+    static const char *sh_cmd[15] = {
+        "ls / dir", "cd", "pwd", "mkdir", "rmdir",
+        "touch", "rm", "cat", "whoami / su", "passwd",
+        "uname", "date", "uptime", "hostname", "echo"
+    };
+    static const char *sh_desc[15] = {
+        "list directory", "change directory", "print working dir",
+        "create a directory", "remove empty dir", "create empty file",
+        "delete a file", "print a file", "account / root", "change password",
+        "system name", "current date/time", "how long it is up",
+        "print hostname", "print arguments"
+    };
+
+    for (int i = 0; i < 15; i++) {
+        help_cell(5 + i, 2, sys_cmd[i], sys_desc[i]);
+        help_cell(5 + i, 41, sh_cmd[i], sh_desc[i]);
+    }
+
     console_set_attr(C_DARK);
-    kprintf("Commands are case-insensitive. \"sysinfo\" aliases \"specs\".\n");
+    console_goto(21, 0);
+    kprintf("  Start-desktop offers ByteDesktop (text) or ByteWin 95 (graphics).\n");
+    kprintf("  Commands are case-insensitive. \"sysinfo\" aliases \"specs\".\n");
     console_set_attr(VGA_ATTR(LIGHT_GRAY, BLACK));
 }
 
-/* ---------------------------------------------------------------- specs */
+ 
 static void feature(const char *name, int present)
 {
     if (present)
@@ -318,7 +343,7 @@ void specs_screen(void)
     console_set_attr(VGA_ATTR(LIGHT_GRAY, BLACK));
 }
 
-/* ---------------------------------------------------------------- memmap */
+ 
 static const char *e820_name(uint32_t type)
 {
     switch (type) {
@@ -371,7 +396,7 @@ void memmap_screen(void)
     console_set_attr(VGA_ATTR(LIGHT_GRAY, BLACK));
 }
 
-/* ---------------------------------------------------------------- about */
+ 
 void about_screen(void)
 {
     console_clear(VGA_ATTR(LIGHT_GRAY, BLACK));
@@ -401,8 +426,9 @@ void about_screen(void)
     kprintf("  brings the CPU into long mode with identity-mapped\n");
     kprintf("  2 MiB pages, and talks directly to VGA and PS/2.\n\n");
     kprintf("  ByteOS 0.2 adds ByteFS, an ATA installer, fetch,\n");
-    kprintf("  ByteDesktop, a file explorer, an HTML editor and a\n");
-    kprintf("  local browser that reads the bundled project website.\n\n");
+    kprintf("  ByteDesktop, the ByteWin 95 graphical desktop, a\n");
+    kprintf("  file explorer, an HTML editor and a local browser\n");
+    kprintf("  that reads the bundled project website.\n\n");
     console_set_attr(C_ACC);
     kprintf("  The signature feature is still the spinning donut.\n");
     console_set_attr(C_DIM);
@@ -411,7 +437,7 @@ void about_screen(void)
     console_set_attr(VGA_ATTR(LIGHT_GRAY, BLACK));
 }
 
-/* ------------------------------------------------------------ line input */
+ 
 int console_read_line(char *buf, size_t cap, int mask)
 {
     size_t len = 0;
@@ -449,7 +475,7 @@ int console_read_line(char *buf, size_t cap, int mask)
     return (int)len;
 }
 
-/* ---------------------------------------------------------------- shell */
+ 
 static int g_allow_exit;
 static int g_exit_requested;
 
@@ -459,6 +485,8 @@ void shell_set_exit_mode(int allow)
     g_exit_requested = 0;
 }
 
+static char g_cwd[64] = "/";
+
 static void shell_prompt(void)
 {
     console_set_attr(VGA_ATTR(LIGHT_GREEN, BLACK));
@@ -467,12 +495,68 @@ static void shell_prompt(void)
     console_puts("@");
     console_set_attr(VGA_ATTR(LIGHT_CYAN, BLACK));
     console_puts(auth_hostname());
+    console_set_attr(VGA_ATTR(LIGHT_GRAY, BLACK));
+    console_puts(":");
+    console_set_attr(VGA_ATTR(LIGHT_BLUE, BLACK));
+    console_puts(str_eq(g_cwd, "/home") ? "~" : g_cwd);
     console_set_attr(VGA_ATTR(LIGHT_GREEN, BLACK));
-    console_puts(auth_is_root() ? "# " : "> ");
+    console_puts(auth_is_root() ? "# " : "$ ");
     console_set_attr(VGA_ATTR(LIGHT_GRAY, BLACK));
 }
 
-static void ls_command(void)
+static const char *fs_path(const char *abs)
+{
+    return abs[0] == '/' ? abs + 1 : abs;
+}
+
+static int prefix_ci(const char *s, const char *prefix, size_t n)
+{
+    for (size_t i = 0; i < n; i++) {
+        char a = s[i];
+        char b = prefix[i];
+        if (a >= 'A' && a <= 'Z')
+            a = (char)(a + 32);
+        if (b >= 'A' && b <= 'Z')
+            b = (char)(b + 32);
+        if (a != b)
+            return 0;
+    }
+    return 1;
+}
+
+static void path_error(const char *cmd, const char *path, const char *why)
+{
+    console_set_attr(VGA_ATTR(LIGHT_RED, BLACK));
+    kprintf("%s: %s: %s\n", cmd, path, why);
+    console_set_attr(VGA_ATTR(LIGHT_GRAY, BLACK));
+}
+
+ 
+
+static int match_cmd(const char *p, const char *name, const char **arg)
+{
+    size_t n = kstrlen(name);
+    for (size_t i = 0; i < n; i++) {
+        char a = p[i];
+        char b = name[i];
+        if (a >= 'A' && a <= 'Z')
+            a = (char)(a + 32);
+        if (b >= 'A' && b <= 'Z')
+            b = (char)(b + 32);
+        if (a != b)
+            return 0;
+    }
+    if (p[n] != 0 && p[n] != ' ')
+        return 0;
+    const char *a = p + n;
+    while (*a == ' ')
+        a++;
+    if (arg)
+        *arg = a;
+    return 1;
+}
+
+static void ls_command(const char *arg)
 {
     if (!bfs_mounted()) {
         console_set_attr(VGA_ATTR(LIGHT_RED, BLACK));
@@ -480,22 +564,34 @@ static void ls_command(void)
         console_set_attr(VGA_ATTR(LIGHT_GRAY, BLACK));
         return;
     }
-    console_set_attr(VGA_ATTR(LIGHT_GRAY, BLACK));
-    int n = 0;
-    for (int i = 0; i < BFS_MAX_FILES; i++) {
-        bfs_file_t *f = bfs_file_at(i);
-        if (!f)
-            continue;
-        console_set_attr(f->flags & BFS_FILE_HTML ? VGA_ATTR(YELLOW, BLACK)
-                                                  : VGA_ATTR(LIGHT_CYAN, BLACK));
-        console_puts("  ");
-        padded(f->name, 32);
-        console_set_attr(VGA_ATTR(LIGHT_GRAY, BLACK));
-        kprintf("%u bytes\n", f->size);
-        n++;
+
+    char abs[96];
+    path_normalize(g_cwd, arg, abs, sizeof(abs));
+    if (!bfs_is_dir(abs)) {
+        path_error("ls", abs, "Not a directory");
+        return;
     }
-    if (n == 0)
-        kprintf("  (empty filesystem)\n");
+
+    static bfs_dir_entry_t entries[64];
+    int n = bfs_list_dir(abs, entries, 64);
+    console_set_attr(C_DARK);
+    kprintf("  total %d\n", n);
+    for (int i = 0; i < n; i++) {
+        bfs_dir_entry_t *e = &entries[i];
+        console_set_attr(e->is_dir ? VGA_ATTR(LIGHT_BLUE, BLACK)
+                                   : e->html ? VGA_ATTR(YELLOW, BLACK)
+                                             : VGA_ATTR(LIGHT_GRAY, BLACK));
+        console_puts("  ");
+        console_puts(e->is_dir ? "drwx  " : "-rw-  ");
+        padded(e->name, 30);
+        if (e->is_dir) {
+            console_set_attr(VGA_ATTR(LIGHT_BLUE, BLACK));
+            console_puts("dir\n");
+        } else {
+            console_set_attr(VGA_ATTR(LIGHT_GRAY, BLACK));
+            kprintf("%u bytes\n", e->size);
+        }
+    }
 }
 
 static void cat_command(const char *path)
@@ -506,11 +602,17 @@ static void cat_command(const char *path)
         console_set_attr(VGA_ATTR(LIGHT_GRAY, BLACK));
         return;
     }
+    char abs[96];
+    path_normalize(g_cwd, path, abs, sizeof(abs));
+    if (bfs_is_dir(abs)) {
+        path_error("cat", abs, "Is a directory");
+        return;
+    }
     static char buf[32768];
     uint32_t len = 0;
-    if (bfs_read(path, buf, sizeof(buf), &len) != 0) {
+    if (bfs_read(fs_path(abs), buf, sizeof(buf), &len) != 0) {
         console_set_attr(VGA_ATTR(LIGHT_RED, BLACK));
-        kprintf("cat: cannot read %s\n", path);
+        kprintf("cat: cannot read %s\n", abs);
         console_set_attr(VGA_ATTR(LIGHT_GRAY, BLACK));
         return;
     }
@@ -518,6 +620,386 @@ static void cat_command(const char *path)
     console_puts(buf);
     if (len && buf[len - 1] != '\n')
         console_putc('\n');
+}
+
+static void cd_command(const char *arg)
+{
+    if (!bfs_mounted()) {
+        console_set_attr(VGA_ATTR(LIGHT_RED, BLACK));
+        kprintf("cd: no ByteFS disk mounted\n");
+        console_set_attr(VGA_ATTR(LIGHT_GRAY, BLACK));
+        return;
+    }
+    char abs[96];
+    if (!arg || !*arg)
+        path_normalize(g_cwd, "/home", abs, sizeof(abs));
+    else if (str_eq(arg, "~"))
+        path_normalize(g_cwd, "/home", abs, sizeof(abs));
+    else
+        path_normalize(g_cwd, arg, abs, sizeof(abs));
+
+    if (!bfs_is_dir(abs)) {
+        path_error("cd", abs, "Not a directory");
+        return;
+    }
+    str_copy(g_cwd, abs, sizeof(g_cwd));
+}
+
+static void mkdir_command(const char *arg)
+{
+    if (!bfs_mounted()) {
+        console_set_attr(VGA_ATTR(LIGHT_RED, BLACK));
+        kprintf("mkdir: no ByteFS disk mounted\n");
+        console_set_attr(VGA_ATTR(LIGHT_GRAY, BLACK));
+        return;
+    }
+    if (!arg || !*arg) {
+        kprintf("usage: mkdir <directory>\n");
+        return;
+    }
+    char abs[96];
+    path_normalize(g_cwd, arg, abs, sizeof(abs));
+    if (str_eq(abs, "/")) {
+        path_error("mkdir", abs, "File exists");
+        return;
+    }
+    int rc = bfs_mkdir(fs_path(abs));
+    if (rc != 0)
+        path_error("mkdir", abs, "File exists or parent missing");
+}
+
+static void rmdir_command(const char *arg)
+{
+    if (!bfs_mounted()) {
+        kprintf("rmdir: no ByteFS disk mounted\n");
+        return;
+    }
+    if (!arg || !*arg) {
+        kprintf("usage: rmdir <directory>\n");
+        return;
+    }
+    char abs[96];
+    path_normalize(g_cwd, arg, abs, sizeof(abs));
+    int rc = bfs_rmdir(fs_path(abs));
+    if (rc == -2)
+        path_error("rmdir", abs, "Not a directory");
+    else if (rc == -3)
+        path_error("rmdir", abs, "Directory not empty");
+    else if (rc != 0)
+        path_error("rmdir", abs, "Cannot remove");
+}
+
+static void touch_command(const char *arg)
+{
+    if (!bfs_mounted()) {
+        kprintf("touch: no ByteFS disk mounted\n");
+        return;
+    }
+    if (!arg || !*arg) {
+        kprintf("usage: touch <file>\n");
+        return;
+    }
+    char abs[96];
+    path_normalize(g_cwd, arg, abs, sizeof(abs));
+    if (bfs_is_dir(abs)) {
+        path_error("touch", abs, "Is a directory");
+        return;
+    }
+    if (!bfs_exists(fs_path(abs))) {
+        if (bfs_add(fs_path(abs), "", 0, bfs_is_html(abs)) != 0)
+            path_error("touch", abs, "Cannot create file");
+    }
+}
+
+static void rm_command(const char *arg)
+{
+    if (!bfs_mounted()) {
+        kprintf("rm: no ByteFS disk mounted\n");
+        return;
+    }
+    if (!arg || !*arg) {
+        kprintf("usage: rm <file>\n");
+        return;
+    }
+    char abs[96];
+    path_normalize(g_cwd, arg, abs, sizeof(abs));
+    if (!bfs_exists(fs_path(abs))) {
+        path_error("rm", abs, "No such file");
+        return;
+    }
+    int rc = bfs_unlink(fs_path(abs));
+    if (rc == -2)
+        path_error("rm", abs, "Is a directory (use rmdir)");
+    else if (rc != 0)
+        path_error("rm", abs, "Cannot remove");
+}
+
+static void lsblk_command(void)
+{
+    console_set_attr(C_LABEL);
+    kprintf("NAME    SIZE      TYPE  MODEL\n");
+    console_set_attr(C_VALUE);
+    int mounted_slot = bfs_mounted() ? bfs_slot() : -1;
+    int any = 0;
+    for (int i = 0; i < ATA_MAX_DISKS; i++) {
+        ata_disk_t *d = ata_slot(i);
+        if (!d)
+            continue;
+        any = 1;
+        char name[8];
+        name[0] = 's';
+        name[1] = 'd';
+        name[2] = (char)('a' + i);
+        name[3] = 0;
+        padded(name, 8);
+        print_size((uint64_t)d->sectors * 512ULL);
+        for (int pad = 0; pad < 6; pad++)
+            console_putc(' ');
+        kprintf("disk  %s\n", d->model[0] ? d->model : "ATA disk");
+
+        if (i == mounted_slot) {
+            console_set_attr(C_DIM);
+            console_puts("|-");
+            padded(name, 6);
+            print_size((uint64_t)(d->sectors - BFS_PART_LBA) * 512ULL);
+            for (int pad = 0; pad < 6; pad++)
+                console_putc(' ');
+            kprintf("part  ByteFS\n");
+            console_set_attr(C_VALUE);
+        }
+    }
+    if (!any) {
+        console_set_attr(C_YELLOW);
+        kprintf("  no ATA disks detected\n");
+    }
+    console_set_attr(VGA_ATTR(LIGHT_GRAY, BLACK));
+}
+
+static void df_command(void)
+{
+    console_set_attr(C_LABEL);
+    kprintf("Filesystem      1K-blocks      Used Available Mounted on\n");
+    console_set_attr(C_VALUE);
+    if (bfs_mounted()) {
+        ata_disk_t *d = ata_slot(bfs_slot());
+        uint64_t total = d ? (uint64_t)(d->sectors - BFS_PART_LBA) * 512ULL : 0;
+        uint64_t used = bfs_used_bytes();
+        uint64_t avail = total > used ? total - used : 0;
+        kprintf("/dev/sd%c1     %10llu %9llu %9llu /\n",
+                (char)('a' + bfs_slot()),
+                (unsigned long long)(total / 1024ULL),
+                (unsigned long long)(used / 1024ULL),
+                (unsigned long long)(avail / 1024ULL));
+    } else {
+        kprintf("romfs                 0         0         0 / (live ISO)\n");
+    }
+    console_set_attr(C_DARK);
+    kprintf("ByteFS stores a flat directory; \"Used\" includes block padding.\n");
+    console_set_attr(VGA_ATTR(LIGHT_GRAY, BLACK));
+}
+
+extern uint8_t __bss_end[];
+extern uint8_t __bss_start[];
+
+static void free_command(void)
+{
+    uint64_t total = g_mem_usable;
+    uint64_t used = (uint64_t)((uintptr_t)__bss_end - 0x10000ULL);
+    if (used > total)
+        used = total;
+    uint64_t freeb = total - used;
+    console_set_attr(C_LABEL);
+    kprintf("              total        used        free      shared  buff/cache\n");
+    console_set_attr(C_VALUE);
+    kprintf("Mem:      %9lluK %10lluK %10lluK %9lluK %10lluK\n",
+            (unsigned long long)(total / 1024ULL),
+            (unsigned long long)(used / 1024ULL),
+            (unsigned long long)(freeb / 1024ULL),
+            0ULL,
+            (unsigned long long)(used / 1024ULL));
+    console_set_attr(C_DIM);
+    kprintf("Swap:               0          0          0\n");
+    console_set_attr(VGA_ATTR(LIGHT_GRAY, BLACK));
+}
+
+static void uname_command(const char *arg)
+{
+    if (arg && str_eq(arg, "-a")) {
+        kprintf("ByteOS %s 0.2 %s #1 x86_64 GNU/ByteOS\n",
+                auth_hostname(), BYTEOS_CODENAME);
+    } else if (arg && str_eq(arg, "-r")) {
+        kprintf("0.2\n");
+    } else if (arg && str_eq(arg, "-m")) {
+        kprintf("x86_64\n");
+    } else if (arg && str_eq(arg, "-n")) {
+        kprintf("%s\n", auth_hostname());
+    } else if (arg && str_eq(arg, "-s")) {
+        kprintf("ByteOS\n");
+    } else {
+        kprintf("ByteOS %s x86_64\n", auth_hostname());
+    }
+}
+
+static int day_of_week(int y, int m, int d)
+{
+    static const int t[] = { 0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4 };
+    if (m < 3)
+        y -= 1;
+    int w = (y + y / 4 - y / 100 + y / 400 + t[m - 1] + d) % 7;
+    return w < 0 ? w + 7 : w;
+}
+
+static void date_command(void)
+{
+    static const char *wd[7] = {
+        "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"
+    };
+    static const char *mo[12] = {
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+    };
+    rtc_time_t tm;
+    if (rtc_read(&tm) != 0) {
+        kprintf("date: RTC unavailable\n");
+        return;
+    }
+    kprintf("%s %s %2d %02d:%02d:%02d %04d\n",
+            wd[day_of_week(tm.year, tm.month, tm.day)],
+            mo[(tm.month - 1) % 12], tm.day,
+            tm.hour, tm.minute, tm.second, tm.year);
+}
+
+static uint64_t uptime_seconds(void)
+{
+    if (!g_tsc_hz || read_tsc() <= g_boot_tsc)
+        return 0;
+    return (read_tsc() - g_boot_tsc) / g_tsc_hz;
+}
+
+static void uptime_command(void)
+{
+    uint64_t up = uptime_seconds();
+    kprintf(" %llu:%02llu:%02llu up ",
+            (unsigned long long)(up / 3600ULL),
+            (unsigned long long)((up / 60ULL) % 60ULL),
+            (unsigned long long)(up % 60ULL));
+    uint64_t days = up / 86400ULL;
+    if (days)
+        kprintf("%llu day%s, ", (unsigned long long)days, days == 1 ? "" : "s");
+    kprintf("%llu:%02llu, 1 user, load average: 0.00, 0.00, 0.00\n",
+            (unsigned long long)((up / 3600ULL) % 24ULL),
+            (unsigned long long)((up / 60ULL) % 60ULL));
+}
+
+static void echo_expand(const char *s)
+{
+    while (*s) {
+        if (*s != '$') {
+            console_putc(*s++);
+            continue;
+        }
+        s++;
+        const char *start = s;
+        while ((*s >= 'A' && *s <= 'Z') || (*s >= 'a' && *s <= 'z') ||
+               (*s >= '0' && *s <= '9') || *s == '_')
+            s++;
+        size_t n = (size_t)(s - start);
+        if (n == 0) {
+            console_putc('$');
+            continue;
+        }
+        if (n == 4 && prefix_ci(start, "USER", 4))
+            console_puts(auth_username());
+        else if (n == 4 && prefix_ci(start, "HOME", 4))
+            console_puts("/home");
+        else if (n == 3 && prefix_ci(start, "PWD", 3))
+            console_puts(g_cwd);
+        else if (n == 8 && prefix_ci(start, "HOSTNAME", 8))
+            console_puts(auth_hostname());
+        else if (n == 5 && prefix_ci(start, "SHELL", 5))
+            console_puts("bytesh");
+        else {
+            console_putc('$');
+            for (size_t i = 0; i < n; i++)
+                console_putc(start[i]);
+        }
+    }
+    console_putc('\n');
+}
+
+static void echo_command(const char *arg)
+{
+    if (!arg)
+        arg = "";
+    char buf[128];
+    str_copy(buf, arg, sizeof(buf));
+    size_t len = kstrlen(buf);
+    if (len >= 2 && ((buf[0] == '"' && buf[len - 1] == '"') ||
+                     (buf[0] == '\'' && buf[len - 1] == '\''))) {
+        buf[len - 1] = 0;
+        echo_expand(buf + 1);
+    } else {
+        echo_expand(buf);
+    }
+}
+
+ 
+static void option_box(int row, int col, int w, const char *title,
+                       const char *l1, const char *l2, int selected)
+{
+    uint8_t bg = selected ? VGA_ATTR(BLACK, CYAN)
+                          : VGA_ATTR(LIGHT_GRAY, BLACK);
+    uint8_t fg = selected ? VGA_ATTR(WHITE, CYAN)
+                          : VGA_ATTR(LIGHT_CYAN, BLACK);
+    uint8_t dim = selected ? VGA_ATTR(LIGHT_GRAY, CYAN)
+                           : VGA_ATTR(DARK_GRAY, BLACK);
+    for (int r = 0; r < 5; r++)
+        for (int c = 0; c < w; c++)
+            vga_put_at(row + r, col + c, ' ', bg);
+    vga_puts_at(row, col + ((w - (int)kstrlen(title)) / 2), title, fg);
+    vga_puts_at(row + 2, col + 2, l1, bg);
+    vga_puts_at(row + 3, col + 2, l2, dim);
+    if (selected) {
+        vga_put_at(row, col, '+', fg);
+        vga_put_at(row, col + w - 1, '+', fg);
+        vga_put_at(row + 4, col, '+', fg);
+        vga_put_at(row + 4, col + w - 1, '+', fg);
+    }
+}
+
+static int desktop_chooser(void)
+{
+    int selected = 0;
+    for (;;) {
+        console_clear(VGA_ATTR(LIGHT_GRAY, BLACK));
+        draw_topbar();
+        centered(2, "CHOOSE A DESKTOP", C_ACC);
+        centered(3, "Both desktops use the same ByteOS shell, files and apps.", C_DARK);
+
+        option_box(6, 4, 34, "1  Classic ByteDesktop",
+                   "80x25 text desktop", "Keyboard driven, lightweight", selected == 0);
+        option_box(6, 42, 34, "2  ByteWin 95",
+                   "640x480 graphical desktop", "Mouse, windows, icons", selected == 1);
+
+        centered(13, "ByteDesktop keeps the original TUI applications.", C_DIM);
+        centered(14, "ByteWin 95 is a real VGA GUI, not a text-mode skin.", C_DIM);
+
+        vga_fill_row(24, C_BAR);
+        vga_puts_at(24, 2, "Up/Down select   Enter start   Esc cancel", C_BAR);
+        vga_puts_at(24, 65, "desktop", C_BAR);
+
+        int key = kbd_waitkey();
+        if (key == KEY_UP || key == KEY_DOWN || key == '\t')
+            selected ^= 1;
+        else if (key == '1')
+            return 0;
+        else if (key == '2')
+            return 1;
+        else if (key == '\n' || key == ' ')
+            return selected;
+        else if (key == 27)
+            return -1;
+    }
 }
 
 static void run_command(const char *raw)
@@ -536,6 +1018,8 @@ static void run_command(const char *raw)
     if (*p == 0)
         return;
 
+    const char *arg = 0;
+
     if (str_eq_ci(p, "help") || str_eq_ci(p, "?")) {
         help_screen();
     } else if (str_eq_ci(p, "specs") || str_eq_ci(p, "sysinfo")) {
@@ -550,13 +1034,32 @@ static void run_command(const char *raw)
         home_screen();
     } else if (str_eq_ci(p, "clear") || str_eq_ci(p, "cls")) {
         console_clear_region(VGA_ATTR(LIGHT_GRAY, BLACK));
-    } else if (str_eq_ci(p, "start-desktop") || str_eq_ci(p, "desktop")) {
+    } else if (match_cmd(p, "start-desktop", &arg) ||
+               match_cmd(p, "desktop", &arg)) {
         if (g_allow_exit) {
             console_set_attr(VGA_ATTR(YELLOW, BLACK));
             kprintf("Already inside ByteDesktop. Type exit to return.\n");
             console_set_attr(VGA_ATTR(LIGHT_GRAY, BLACK));
         } else {
-            desktop();
+            int choice;
+            if (str_eq_ci(arg, "classic") || str_eq_ci(arg, "text"))
+                choice = 0;
+            else if (str_eq_ci(arg, "win95") || str_eq_ci(arg, "gui") ||
+                     str_eq_ci(arg, "win"))
+                choice = 1;
+            else
+                choice = desktop_chooser();
+
+            if (choice == 1) {
+                if (win95_desktop() != 0) {
+                    console_set_attr(VGA_ATTR(LIGHT_RED, BLACK));
+                    kprintf("\nByteWin 95 could not start; using ByteDesktop instead.\n");
+                    console_set_attr(VGA_ATTR(LIGHT_GRAY, BLACK));
+                    desktop();
+                }
+            } else if (choice == 0) {
+                desktop();
+            }
             home_screen();
         }
     } else if (str_eq_ci(p, "reboot")) {
@@ -565,18 +1068,44 @@ static void run_command(const char *raw)
         fetch_screen();
         if (!desktop_active())
             home_screen();
-    } else if (str_eq_ci(p, "ls") || str_eq_ci(p, "dir")) {
-        ls_command();
-    } else if (str_eq_ci(p, "cat")) {
-        console_set_attr(VGA_ATTR(LIGHT_RED, BLACK));
-        kprintf("usage: cat <path>\n");
-        console_set_attr(VGA_ATTR(LIGHT_GRAY, BLACK));
-    } else if (p[0] == 'c' && p[1] == 'a' && p[2] == 't' && p[3] == ' ') {
-        const char *path = p + 4;
-        while (*path == ' ')
-            path++;
-        if (*path)
-            cat_command(path);
+    } else if (match_cmd(p, "ls", &arg) || match_cmd(p, "dir", &arg)) {
+        ls_command(arg);
+    } else if (match_cmd(p, "cd", &arg)) {
+        cd_command(arg);
+    } else if (str_eq_ci(p, "pwd")) {
+        kprintf("%s\n", g_cwd);
+    } else if (match_cmd(p, "mkdir", &arg)) {
+        mkdir_command(arg);
+    } else if (match_cmd(p, "rmdir", &arg)) {
+        rmdir_command(arg);
+    } else if (match_cmd(p, "touch", &arg)) {
+        touch_command(arg);
+    } else if (match_cmd(p, "rm", &arg)) {
+        rm_command(arg);
+    } else if (match_cmd(p, "cat", &arg)) {
+        if (*arg)
+            cat_command(arg);
+        else {
+            console_set_attr(VGA_ATTR(LIGHT_RED, BLACK));
+            kprintf("usage: cat <path>\n");
+            console_set_attr(VGA_ATTR(LIGHT_GRAY, BLACK));
+        }
+    } else if (str_eq_ci(p, "lsblk")) {
+        lsblk_command();
+    } else if (str_eq_ci(p, "df")) {
+        df_command();
+    } else if (str_eq_ci(p, "free")) {
+        free_command();
+    } else if (match_cmd(p, "uname", &arg)) {
+        uname_command(arg);
+    } else if (str_eq_ci(p, "date")) {
+        date_command();
+    } else if (str_eq_ci(p, "uptime")) {
+        uptime_command();
+    } else if (str_eq_ci(p, "hostname")) {
+        kprintf("%s\n", auth_hostname());
+    } else if (match_cmd(p, "echo", &arg)) {
+        echo_command(arg);
     } else if (str_eq_ci(p, "whoami")) {
         console_set_attr(VGA_ATTR(LIGHT_CYAN, BLACK));
         kprintf("%s%s\n", auth_username(), auth_is_root() ? " (root)" : "");

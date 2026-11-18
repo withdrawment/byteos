@@ -1,7 +1,7 @@
 #include "kernel.h"
 #include <stdarg.h>
 
-/* ---------------------------------------------------------------- globals */
+ 
 boot_info_t *g_boot;
 int g_boot_ok;
 uint32_t g_e820_count;
@@ -26,7 +26,7 @@ static int g_top;
 static int g_bottom = VGA_HEIGHT - 1;
 static uint8_t g_attr = VGA_ATTR(LIGHT_GRAY, BLACK);
 
-/* ------------------------------------------------------------- freestanding */
+ 
 void *memset(void *dst, int c, size_t n)
 {
     void *ret = dst;
@@ -127,7 +127,7 @@ int str_eq_ci(const char *a, const char *b)
     return *a == 0 && *b == 0;
 }
 
-/* ---------------------------------------------------------------- console */
+ 
 static void update_cursor(void)
 {
     uint16_t pos = (uint16_t)(g_row * VGA_WIDTH + g_col);
@@ -196,7 +196,7 @@ void console_clear(uint8_t attr)
 void console_init(uint8_t attr)
 {
     console_clear(attr);
-    /* Enable the hardware text cursor. */
+     
     __asm__ volatile("outb %0, %1" : : "a"((uint8_t)0x0A), "Nd"((uint16_t)0x3D4));
     __asm__ volatile("outb %0, %1" : : "a"((uint8_t)0x0E), "Nd"((uint16_t)0x3D5));
     __asm__ volatile("outb %0, %1" : : "a"((uint8_t)0x0B), "Nd"((uint16_t)0x3D4));
@@ -301,7 +301,7 @@ void vga_puts_at(int row, int col, const char *s, uint8_t attr)
     }
 }
 
-/* ---------------------------------------------------------------- kprintf */
+ 
 static void print_number(uint64_t value, unsigned base, int width, char pad,
                          int upper, int negative)
 {
@@ -446,7 +446,7 @@ void print_size(uint64_t bytes)
     }
 }
 
-/* ---------------------------------------------------------------- entry */
+ 
 extern uint8_t __bss_start[];
 extern uint8_t __bss_end[];
 

@@ -4,8 +4,9 @@ ByteOS is a tiny 64-bit bare-metal operating system that you can read end to
 end. It boots from its own hand-built El Torito ISO or from its own MBR,
 enters long mode without GRUB and without a libc, and gives you a VGA text
 console, a persistent ByteFS disk, accounts and login, a guided disk
-installer, a fastfetch-style system summary, and a small text-mode desktop
-with a local HTML browser, a file explorer, a terminal, and an HTML editor.
+installer, a fastfetch-style system summary, and two desktops: the classic
+text-mode ByteDesktop and a 640x480 graphical ByteWin 95 with a mouse,
+windows, icons, and a small command prompt.
 
 Source and releases: **https://github.com/withdrawment/byteos**
 
@@ -13,8 +14,8 @@ Source and releases: **https://github.com/withdrawment/byteos**
 
 ## What is new in 0.2
 
-- **ByteFS** - a small flat filesystem on an ATA PIO disk: 32 files, full
-  paths, no journal and no permissions. Files survive a reboot.
+- **ByteFS** - a small flat filesystem on an ATA PIO disk: 32 directory
+  entries, full paths, no journal and no permissions. Files survive a reboot.
 - **`byte-install`** - an archinstall-style guided installer that writes an
   MBR, stage 2, the kernel, a ByteFS partition, the bundled website, and your
   account database to a raw disk.
@@ -25,6 +26,14 @@ Source and releases: **https://github.com/withdrawment/byteos**
   uptime, disk, boot mode, and account data, plus ByteOS donut ASCII art.
 - **ByteDesktop** - a full-screen text-mode desktop with Files, Browser,
   Editor, Terminal, Fetch, and Donut.
+- **ByteWin 95** - a real 640x480 VGA graphics desktop with 16 colours, a
+  mouse cursor, icons, draggable windows, a Start menu, a taskbar, Notepad,
+  My Computer, System Properties, About, and a graphical command prompt.
+- **Desktop chooser** - `start-desktop` asks which desktop to run each time;
+  `start-desktop classic` and `start-desktop win95` skip the prompt.
+- **Linux-style shell** - `pwd`, `cd`, `mkdir`, `rmdir`, `touch`, `rm`,
+  `ls`/`dir`, `lsblk`, `df`, `free`, `uname`, `date`, `uptime`, `hostname`,
+  and `echo` join the existing ByteOS commands.
 - **Local HTML browser** - reads pages from ByteFS or from the pages embedded
   in the ISO. It renders headings, paragraphs, lists, links, tables, and
   preformatted text. The project website ships inside the OS.
@@ -132,16 +141,26 @@ The installed layout is:
 | ByteFS sector 0..3 | superblock and 32-entry directory |
 | ByteFS sector 8.. | file contents |
 
-ByteFS is deliberately simple: a flat namespace of full paths, 32 files, and
-contiguous data. There are no directories on disk, no journal, and no file
-permissions. The user/root split is enforced by the login and `su` commands,
-not by the filesystem.
+ByteFS is deliberately simple: a flat namespace of full paths, 32 directory
+entries, and contiguous data. Directories are virtual: a path such as
+`www/docs.html` implies the `www` directory, and `mkdir` adds an explicit
+directory entry. There is no journal and no file permissions. The user/root
+split is enforced by the login and `su` commands, not by the filesystem.
 
-## The desktop
+## The desktops
 
-Run `start-desktop` from the console. ByteDesktop is a full-screen text-mode
-menu; there are no overlapping windows. Use the arrow keys and Enter, the
-letter shortcuts, and **F10** or **Esc** to return to the console.
+Run `start-desktop` from the console. ByteOS asks whether to start the classic
+ByteDesktop or ByteWin 95; arrow keys select and Enter starts. The aliases
+`start-desktop classic`, `start-desktop text`, `start-desktop win95`, and
+`start-desktop gui` skip the chooser.
+
+![ByteOS desktop chooser](screenshots/chooser.png)
+
+### ByteDesktop
+
+ByteDesktop is a full-screen text-mode menu; there are no overlapping
+windows. Use the arrow keys and Enter, the letter shortcuts, and **F10** or
+**Esc** to return to the console.
 
 ![ByteDesktop](screenshots/desktop.png)
 
@@ -165,11 +184,48 @@ Keyboard shortcuts on the desktop menu: `f` Files, `b` Browser, `e` Editor,
 
 ![ByteOS desktop terminal after running fetch](screenshots/terminal.png)
 
-The browser is intentionally a small HTML subset renderer. It understands
-headings, paragraphs, lists, links, horizontal rules, rudimentary tables, and
-`<pre>` blocks. It does not run JavaScript or load CSS. External `http://` and
-`https://` links show their address and a "no network" message because ByteOS
-has no network stack.
+### ByteWin 95
+
+ByteWin 95 is the second desktop: a genuine 640x480 VGA mode 12h GUI with 16
+colours, not a text-mode skin. It saves the text-mode VGA registers, font,
+palette, and screen before switching, so the shell is restored exactly when
+you leave.
+
+![ByteWin 95 desktop](screenshots/win95.png)
+
+- **Mouse** - move the pointer, click taskbar buttons, double-click desktop
+  icons or files, drag windows by their title bars, and close them with the
+  box in the title bar.
+- **Start menu** - click Start or press **F10**. It opens My Computer,
+  Notepad, Command Prompt, System Properties, About ByteWin 95, the original
+  TUI Browser, HTML Editor, Terminal, Fetch, and Donut, plus Shut Down.
+- **Windows** - overlapping, draggable, focusable windows with an active
+  title bar, a taskbar button each, and a close box.
+- **My Computer** - browses ByteFS on an installed disk, or the read-only
+  built-in ISO pages when running live. Double-click folders and files.
+- **Command Prompt** - a graphical shell with `ls`/`dir [path]`, `cd`, `pwd`,
+  `mkdir`, `rmdir`, `touch`, `rm`, `cat`, `lsblk`, `df`, `free`, `uname`,
+  `date`, `uptime`, `hostname`, `echo`, `whoami`, `clear`, `exit`, `fetch`,
+  and `help`.
+- **TUI handoff** - Browser, HTML Editor, Terminal, Fetch, and Donut switch
+  back to text mode, run the original app, then return to the GUI.
+
+Keyboard shortcuts: **F10** Start menu, **F12** leave ByteWin 95, **Esc**
+close the focused window, **Tab** cycle windows, arrow keys move through
+icons and menus, and **Enter** launches. F12 and Shut Down both return to the
+ByteOS shell.
+
+![ByteWin 95 Start menu](screenshots/win95-menu.png)
+
+![ByteWin 95 My Computer browsing an installed ByteFS disk](screenshots/win95-files.png)
+
+![ByteWin 95 command prompt](screenshots/win95-console.png)
+
+The text-mode browser is intentionally a small HTML subset renderer. It
+understands headings, paragraphs, lists, links, horizontal rules, rudimentary
+tables, and `<pre>` blocks. It does not run JavaScript or load CSS. External
+`http://` and `https://` links show their address and a "no network" message
+because ByteOS has no network stack.
 
 ## Shell commands
 
@@ -180,10 +236,26 @@ has no network stack.
 | `specs` / `sysinfo` | CPUID, memory map, TSC, RTC, and build report |
 | `memmap` / `e820` | Raw BIOS E820 memory map |
 | `about` | Project background |
-| `start-desktop` / `desktop` | Launch ByteDesktop |
+| `start-desktop` / `desktop` | Choose ByteDesktop or ByteWin 95 |
+| `start-desktop classic` | Start the text-mode ByteDesktop directly |
+| `start-desktop win95` | Start the graphical ByteWin 95 directly |
 | `byte-install` | Guided installation to an ATA disk |
-| `ls` / `dir` | List ByteFS files |
+| `ls` / `dir [path]` | List ByteFS files and directories |
+| `pwd` | Print the current directory |
+| `cd [path]` | Change directory; no argument goes to `/home` |
+| `mkdir <path>` | Create a directory |
+| `rmdir <path>` | Remove an empty directory |
+| `touch <path>` | Create an empty file |
+| `rm <path>` | Delete a file |
 | `cat <path>` | Print a ByteFS file |
+| `lsblk` | List ATA disks and the mounted ByteFS partition |
+| `df` | Show ByteFS space usage |
+| `free` | Show memory usage |
+| `uname [-a\|-r\|-m\|-n\|-s]` | System name and release |
+| `date` | Read the RTC date and time |
+| `uptime` | Time since boot |
+| `hostname` | Show the hostname |
+| `echo <text>` | Print text; expands `$USER`, `$HOME`, `$PWD`, `$HOSTNAME`, `$SHELL` |
 | `whoami` | Current account |
 | `su` | Switch to root |
 | `passwd` | Change the current account password |
@@ -193,8 +265,11 @@ has no network stack.
 | `version` | Version string |
 | `reboot` | Warm reboot |
 
-Commands are case-insensitive. Paths in `cat` and in the browser are
-case-insensitive too.
+Commands are case-insensitive. `dir` is an alias for `ls`. The shell keeps a
+virtual current directory over the flat ByteFS namespace: paths such as
+`www/docs.html` and `home/notes.html` imply their parent directories, and
+`mkdir` adds an explicit directory entry. Paths in `cat` and in the browser
+are case-insensitive too.
 
 ## Build
 
@@ -231,14 +306,16 @@ own ISO9660/El Torito writer. No external ISO tool is required.
 boot/boot.asm       16-bit BIOS loader, 32-bit trampoline, long-mode entry
 boot/mbr.asm        MBR and stage-2 disk loader
 kernel/core.c       entry point, VGA console, kprintf, memory/string helpers
-kernel/platform.c   CPUID, E820, RTC/CMOS, PIT/TSC, PS/2 keyboard
-kernel/ui.c         boot screen, reports, help/about, shell, commands
+kernel/platform.c   CPUID, E820, RTC/CMOS, PIT/TSC, PS/2 keyboard and mouse
+kernel/ui.c         boot screen, reports, help/about, shell, desktop chooser, commands
 kernel/ata.c        ATA PIO disk driver
-kernel/bfs.c        ByteFS format, mount, read, write
+kernel/bfs.c        ByteFS format, mount, read, write, directories
 kernel/auth.c       accounts, login, su, passwd
 kernel/install.c    byte-install wizard and disk writer
 kernel/fetch.c      fetch system summary
-kernel/desktop.c    ByteDesktop, file explorer, terminal
+kernel/desktop.c    classic ByteDesktop, file explorer, terminal
+kernel/win95.c      VGA mode 12h ByteWin 95 graphical desktop
+kernel/font8x16.h   embedded 8x16 VGA font used by ByteWin 95
 kernel/browser.c    local HTML browser
 kernel/editor.c     HTML editor
 kernel/donut.c      z-buffered spinning ASCII torus
@@ -255,7 +332,7 @@ run.ps1             boot the ISO in QEMU
 2. Stage 2 enables A20, collects the E820 memory map, switches to VGA text
    mode 80x25, and identity-maps the first 1 GiB with 2 MiB pages.
 3. It enables PAE, long mode, and SSE state saving, then jumps to the flat
-   kernel at `0x10000` on a stack at `0x90000`.
+   kernel at `0x10000` on a stack at `0x700000`.
 4. The kernel zeroes `.bss`, detects the CPU, reads the memory map, calibrates
    the TSC with PIT channel 2, probes ATA disks, mounts ByteFS if the boot
    device is an installed disk, and starts the login or shell.
@@ -275,8 +352,10 @@ ByteOS is still a small system, not a general-purpose OS:
 - No networking. External links in the browser show their address.
 - No interrupts, scheduler, user mode, or virtual memory beyond the initial
   identity map. Input is polled.
-- VGA text mode only; no graphics mode.
-- ByteFS has 32 files and no permissions, journal, or directories.
+- VGA only: text mode 80x25 and mode 12h at 640x480 with 16 colours. There is
+  no VBE or higher-resolution framebuffer.
+- ByteFS has 32 directory entries, a flat path namespace, virtual
+  directories, and no permissions or journal.
 
 Natural next steps are an IDT with timer and keyboard interrupts, a physical
 page allocator, a heap, a richer filesystem, ATA DMA/AHCI, networking, and

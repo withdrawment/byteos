@@ -36,10 +36,24 @@
 <tr><td><code>memmap</code></td><td>Raw BIOS E820 memory map.</td></tr>
 <tr><td><code>about</code></td><td>Project background.</td></tr>
 <tr><td><code>donut</code></td><td>Spinning z-buffered ASCII donut. Any key returns.</td></tr>
-<tr><td><code>start-desktop</code></td><td>Launch ByteDesktop.</td></tr>
+<tr><td><code>start-desktop</code></td><td>Choose ByteDesktop or ByteWin 95. Add <code>classic</code> or <code>win95</code> to skip the chooser.</td></tr>
 <tr><td><code>byte-install</code></td><td>Guided installer for an ATA/IDE disk.</td></tr>
-<tr><td><code>ls</code></td><td>List files on the installed ByteFS disk.</td></tr>
+<tr><td><code>ls</code> / <code>dir</code></td><td>List files and directories, optionally for one path.</td></tr>
+<tr><td><code>pwd</code></td><td>Print the current directory.</td></tr>
+<tr><td><code>cd</code></td><td>Change directory; no argument goes to <code>/home</code>.</td></tr>
+<tr><td><code>mkdir</code></td><td>Create a directory.</td></tr>
+<tr><td><code>rmdir</code></td><td>Remove an empty directory.</td></tr>
+<tr><td><code>touch</code></td><td>Create an empty file.</td></tr>
+<tr><td><code>rm</code></td><td>Delete a file.</td></tr>
 <tr><td><code>cat FILE</code></td><td>Print a text file from ByteFS.</td></tr>
+<tr><td><code>lsblk</code></td><td>List ATA disks and the mounted ByteFS partition.</td></tr>
+<tr><td><code>df</code></td><td>Show ByteFS space usage.</td></tr>
+<tr><td><code>free</code></td><td>Show memory usage.</td></tr>
+<tr><td><code>uname</code></td><td>System name and release; accepts <code>-a</code>, <code>-r</code>, <code>-m</code>, <code>-n</code>, <code>-s</code>.</td></tr>
+<tr><td><code>date</code></td><td>Read the RTC date and time.</td></tr>
+<tr><td><code>uptime</code></td><td>Time since boot.</td></tr>
+<tr><td><code>hostname</code></td><td>Show the hostname.</td></tr>
+<tr><td><code>echo</code></td><td>Print text and expand <code>$USER</code>, <code>$HOME</code>, <code>$PWD</code>, <code>$HOSTNAME</code>, <code>$SHELL</code>.</td></tr>
 <tr><td><code>whoami</code></td><td>Show the signed-in account.</td></tr>
 <tr><td><code>su</code></td><td>Switch to root with the root password.</td></tr>
 <tr><td><code>passwd</code></td><td>Change the current account password.</td></tr>
@@ -47,13 +61,21 @@
 <tr><td><code>clear</code></td><td>Clear the console.</td></tr>
 <tr><td><code>reboot</code></td><td>Warm reboot.</td></tr>
 </table>
-<p>Commands are case-insensitive. Aliases: <code>sysinfo</code> for specs,
-<code>cls</code> for clear, <code>?</code> for help.</p>
+<p>Commands are case-insensitive. Aliases: <code>dir</code> for ls,
+<code>sysinfo</code> for specs, <code>cls</code> for clear, <code>?</code> for
+help. The shell keeps a virtual current directory over the flat ByteFS
+namespace; paths such as <code>www/docs.html</code> imply their parent
+directories.</p>
 
-<h2>ByteDesktop</h2>
-<p>Run <code>start-desktop</code> from the console. Use the arrow keys to pick
-an app and Enter to open it. F10 or Esc returns to the desktop; the desktop
-itself returns to the console when you choose Exit.</p>
+<h2>Desktops</h2>
+<p>Run <code>start-desktop</code> from the console and pick a desktop. The
+chooser runs every time; <code>start-desktop classic</code> and
+<code>start-desktop win95</code> start one directly.</p>
+
+<h3>ByteDesktop</h3>
+<p>The classic 80x25 text-mode desktop. Use the arrow keys to pick an app and
+Enter to open it. F10 or Esc returns to the desktop; the desktop itself
+returns to the console when you choose Exit.</p>
 <ul>
   <li><strong>Files</strong> - browse ByteFS. Enter opens HTML in the browser; F4 opens it in the editor.</li>
   <li><strong>Browser</strong> - local HTML reader. Type a path with <kbd>u</kbd>, follow numbered links, Backspace goes back, and <kbd>e</kbd> edits the current page.</li>
@@ -61,6 +83,20 @@ itself returns to the console when you choose Exit.</p>
   <li><strong>Terminal</strong> - the full ByteOS shell inside the desktop. Type <code>exit</code> to return.</li>
   <li><strong>Fetch</strong> - the same system summary as the console command.</li>
 </ul>
+
+<h3>ByteWin 95</h3>
+<p>A genuine 640x480 VGA mode 12h desktop with 16 colours, a mouse cursor,
+icons, and overlapping windows. It saves and restores the text-mode VGA
+state, so the shell comes back exactly when you leave.</p>
+<ul>
+  <li><strong>Start menu</strong> - click Start or press F10. It opens My Computer, Notepad, Command Prompt, System Properties, About ByteWin 95, the original TUI apps, and Shut Down.</li>
+  <li><strong>Windows</strong> - drag title bars, click taskbar buttons, double-click icons and files, and use the close box.</li>
+  <li><strong>My Computer</strong> - browses ByteFS on an installed disk, or the built-in ISO pages when running live.</li>
+  <li><strong>Command Prompt</strong> - a graphical shell with <code>ls</code>/<code>dir</code>, <code>cd</code>, <code>pwd</code>, <code>mkdir</code>, <code>rmdir</code>, <code>touch</code>, <code>rm</code>, <code>cat</code>, <code>lsblk</code>, <code>df</code>, <code>free</code>, <code>uname</code>, <code>date</code>, <code>uptime</code>, <code>hostname</code>, <code>echo</code>, <code>whoami</code>, <code>clear</code>, <code>exit</code>, <code>fetch</code>, and <code>help</code>.</li>
+  <li><strong>TUI handoff</strong> - Browser, HTML Editor, Terminal, Fetch, and Donut switch to text mode, run the original app, then return to the GUI.</li>
+</ul>
+<p>F10 opens Start, F12 leaves ByteWin 95, Esc closes the focused window, Tab
+cycles windows, and Enter launches the selected icon or menu item.</p>
 
 <h2>Disk layout</h2>
 <pre><code>LBA 0          MBR (ByteOS stage 1)
@@ -72,9 +108,11 @@ ByteFS:
   sector 0..3    superblock + 32 directory entries
   sector 8..     contiguous file data</code></pre>
 <p>ByteFS stores full paths such as <code>www/index.html</code> and
-<code>etc/passwd</code>. It is intentionally simple: no journal, no
-permissions, no directories on disk. Account passwords are stored as FNV-1a
-hashes, which is appropriate for a demo OS but not production security.</p>
+<code>etc/passwd</code>. It is intentionally simple: no journal and no
+permissions. Directories are virtual: a path implies its parent directory, and
+<code>mkdir</code> adds an explicit directory entry. Account passwords are
+stored as FNV-1a hashes, which is appropriate for a demo OS but not production
+security.</p>
 
 <h2>Boot path</h2>
 <ol>
@@ -93,7 +131,7 @@ hashes, which is appropriate for a demo OS but not production security.</p>
   <li>Legacy BIOS / CSM only. Native UEFI is not implemented.</li>
   <li>ATA PIO (IDE) disks only. AHCI, NVMe, and USB storage are not supported.</li>
   <li>No networking. The browser reads local files; external links show their URL.</li>
-  <li>Text mode 80x25, one task, ring 0 only.</li>
+  <li>One task, ring 0 only. ByteWin 95 is a single-threaded 640x480 GUI, and the classic desktop is 80x25 text mode.</li>
   <li>Installation erases the selected disk. Use a spare disk or QEMU image.</li>
 </ul>
 

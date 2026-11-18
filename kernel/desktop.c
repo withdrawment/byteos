@@ -143,7 +143,7 @@ static void draw_desktop(int selected)
         char sz[32];
         uint32_t freeb = bfs_free_bytes();
         sz[0] = 0;
-        /* compact free-space text */
+         
         uint32_t kib = freeb / 1024u;
         int n = 0;
         char tmp[16];
@@ -181,7 +181,7 @@ static void draw_desktop(int selected)
     vga_puts_at(24, 57, "ByteDesktop 0.2", C_BAR);
 }
 
-/* ------------------------------------------------------------- app shell */
+ 
 void app_screen(const char *title, const char *hint)
 {
     console_clear(VGA_ATTR(LIGHT_GRAY, BLACK));
@@ -201,7 +201,7 @@ void app_footer(const char *text)
     vga_puts_at(24, 2, text, C_BAR);
 }
 
-/* --------------------------------------------------------------- terminal */
+ 
 static void terminal_app(void)
 {
     app_screen("ByteOS Terminal", "Type exit to return to ByteDesktop");
@@ -216,7 +216,7 @@ static void terminal_app(void)
     shell_set_exit_mode(0);
 }
 
-/* ----------------------------------------------------------- file browser */
+ 
 typedef struct {
     const char *name;
     uint32_t size;
@@ -293,7 +293,7 @@ static void files_app(void)
             str_copy(name, e->name, sizeof(name));
             vga_puts_at(row, 10, name, attr);
             char sz[24];
-            /* right-aligned size in bytes/KiB */
+             
             uint32_t v = e->size;
             int n = 0;
             char tmp[16];
@@ -363,7 +363,7 @@ static void files_app(void)
     }
 }
 
-/* ---------------------------------------------------------------- desktop */
+ 
 void desktop(void)
 {
     int selected = 0;

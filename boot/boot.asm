@@ -1,7 +1,7 @@
-; ByteOS boot image
-; BIOS El Torito loads this whole image at 0x7C00 (no emulation).
-; Stage 1: set up segments and jump to stage 2.
-; Stage 2: A20, E820, VGA text mode, page tables, long mode, jump to kernel.
+
+
+
+
 
 bits 16
 org 0x7C00
@@ -9,12 +9,12 @@ org 0x7C00
 KERNEL_LOAD_ADDR equ 0x10000
 BOOT_INFO_ADDR   equ 0x5000
 E820_ENTRIES     equ 0x5008
-BOOT_MAGIC       equ 0x42595445      ; "BYTE"
+BOOT_MAGIC       equ 0x42595445
 BOOT_DRIVE_OFS   equ 3080
 BOOT_IMAGE_OFS   equ 3084
 BOOT_FLAGS_OFS   equ 3088
 DISK_FLAG_ADDR   equ 0x4FF0
-DISK_FLAG_VALUE  equ 0x4449534B      ; "DISK"
+DISK_FLAG_VALUE  equ 0x4449534B
 BOOT_DRIVE_SAVE  equ 0x4FE0
 KERNEL_START_LBA equ 0x8400 / 512
 
@@ -66,13 +66,13 @@ stage2:
 
     call do_e820
 
-    ; 80x25 colour text mode.
+
     mov ax, 0x0003
     int 0x10
 
     call build_page_tables
 
-    ; Enable PAE, SSE state saving, and clear CR0.EM.
+
     mov eax, cr4
     or eax, (1 << 5) | (1 << 9) | (1 << 10)
     mov cr4, eax
@@ -83,21 +83,21 @@ stage2:
 
     lgdt [gdt_desc]
 
-    ; Enter 32-bit protected mode first.
+
     mov eax, cr0
     or eax, 1
     mov cr0, eax
     jmp 0x08:pm32
 
-; ---------------------------------------------------------------- A20
+
 enable_a20:
-    ; Fast A20 gate.
+
     in al, 0x92
     or al, 0x02
     and al, 0xFE
     out 0x92, al
 
-    ; Keyboard-controller A20 gate, for older machines.
+
     call a20_wait
     mov al, 0xAD
     out 0x64, al
@@ -126,7 +126,7 @@ a20_wait:
     jnz a20_wait
     ret
 
-; ---------------------------------------------------------------- E820
+
 do_e820:
     xor ax, ax
     mov es, ax
@@ -161,9 +161,9 @@ do_e820:
 .done:
     ret
 
-; ---------------------------------------------------- Disk kernel loader
-; When booted from a hard disk the MBR only loads stage 2.  Pull the flat
-; kernel from LBA 66 (byte offset 0x8400 in the boot image) into 0x10000.
+
+
+
 load_kernel_disk:
     mov word [disk_dap_count], 64
     mov word [disk_dap_off], 0
@@ -230,25 +230,25 @@ kernel_remaining:
 disk_error_msg:
     db "ByteOS: disk kernel load failed", 13, 10, 0
 
-; ---------------------------------------------------------- Page tables
+
 build_page_tables:
-    ; Zero PML4, PDPT and the single PD.
+
     xor eax, eax
     mov edi, PML4_ADDR
     mov ecx, 0x3000 / 4
     rep stosd
 
-    ; PML4[0] -> PDPT, present + writable.
+
     mov dword [PML4_ADDR], PDPT_ADDR | 0x03
     mov dword [PML4_ADDR + 4], 0
 
-    ; PDPT[0] -> PD, present + writable.
+
     mov dword [PDPT_ADDR], PD_ADDR | 0x03
     mov dword [PDPT_ADDR + 4], 0
 
-    ; 512 x 2 MiB identity pages = first 1 GiB.
+
     mov edi, PD_ADDR
-    mov eax, 0x00000083              ; present, writable, 2 MiB page
+    mov eax, 0x00000083
     mov ecx, 512
 .fill_pd:
     mov [edi], eax
@@ -258,20 +258,20 @@ build_page_tables:
     loop .fill_pd
     ret
 
-; ---------------------------------------------------------------- GDT
+
 align 8
 gdt:
-    dq 0x0000000000000000            ; 0x00 null
-    dq 0x00CF9A000000FFFF            ; 0x08 32-bit code, flat 4 GiB
-    dq 0x00CF92000000FFFF            ; 0x10 data, flat 4 GiB
-    dq 0x00AF9A000000FFFF            ; 0x18 64-bit code
+    dq 0x0000000000000000
+    dq 0x00CF9A000000FFFF
+    dq 0x00CF92000000FFFF
+    dq 0x00AF9A000000FFFF
 gdt_end:
 
 gdt_desc:
     dw gdt_end - gdt - 1
     dd gdt
 
-; ------------------------------------------------------- 32-bit trampoline
+
 bits 32
 pm32:
     mov ax, 0x10
@@ -282,7 +282,7 @@ pm32:
     mov ss, ax
     mov esp, 0x7000
 
-    ; Long Mode Enable.
+
     mov ecx, 0xC0000080
     rdmsr
     or eax, 0x00000100
@@ -291,13 +291,13 @@ pm32:
     mov eax, PML4_ADDR
     mov cr3, eax
 
-    ; Paging on. We are now in long mode compatibility mode.
+
     mov eax, cr0
     or eax, 0x80000000
     mov cr0, eax
     jmp 0x18:long_mode_entry
 
-; ------------------------------------------------------------- 64-bit entry
+
 bits 64
 long_mode_entry:
     cld
@@ -307,7 +307,7 @@ long_mode_entry:
     mov fs, ax
     mov gs, ax
     mov ss, ax
-    mov rsp, 0x90000
+    mov rsp, 0x700000
     xor rbp, rbp
     fninit
 
@@ -320,8 +320,8 @@ long_mode_entry:
     hlt
     jmp .hang
 
-; ---------------------------------------------------------------- Kernel
-; Place the flat kernel binary at physical 0x10000.
+
+
     times 0x8400 - ($ - $$) db 0
     incbin "build/kernel.bin"
 boot_image_end:

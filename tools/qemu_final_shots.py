@@ -85,6 +85,9 @@ def main() -> None:
     shot(s, out / "help.ppm")
 
     run(s, "start-desktop", 1.2)
+    shot(s, out / "chooser.ppm")
+    key(s, "1", 0.4)
+    key(s, "ret", 1.5)
     shot(s, out / "desktop.ppm")
 
     key(s, "b", 1.2)
@@ -114,6 +117,26 @@ def main() -> None:
     key(s, "spc", 0.8)
     key(s, "f10", 1.0)
     shot(s, out / "console.ppm")
+
+    run(s, "start-desktop", 1.2)
+    key(s, "2", 0.4)
+    key(s, "ret", 2.5)
+    shot(s, out / "win95.ppm")
+
+    key(s, "f10", 0.6)
+    shot(s, out / "win95-menu.ppm")
+    key(s, "ret", 1.2)
+    shot(s, out / "win95-files.ppm")
+    key(s, "esc", 0.6)
+
+    key(s, "f10", 0.6)
+    key(s, "down", 0.3)
+    key(s, "down", 0.3)
+    key(s, "ret", 1.2)
+    run(s, "ls", 0.8)
+    run(s, "df", 0.8)
+    shot(s, out / "win95-console.ppm")
+    key(s, "f12", 1.8)
 
     cmd(s, "quit", 0.3)
     s.close()

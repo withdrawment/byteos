@@ -51,7 +51,7 @@ try {
         'kernel/core.c', 'kernel/platform.c', 'kernel/ui.c', 'kernel/donut.c',
         'kernel/ata.c', 'kernel/bfs.c', 'kernel/auth.c', 'kernel/install.c',
         'kernel/fetch.c', 'kernel/desktop.c', 'kernel/browser.c',
-        'kernel/editor.c',
+        'kernel/editor.c', 'kernel/win95.c',
         'build/site_data.c', 'build/mbr_blob.c'
     )
     $objects = @()

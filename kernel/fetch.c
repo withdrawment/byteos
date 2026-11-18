@@ -31,8 +31,8 @@ static void truncate_copy(char *dst, const char *src, int max)
     dst[i] = 0;
 }
 
-/* fetch is a full-screen overlay: save whatever is behind it (the shell,
-   the desktop, or the desktop terminal) and put it back on exit. */
+ 
+
 static uint16_t g_saved_screen[VGA_WIDTH * VGA_HEIGHT];
 
 void fetch_screen(void)
@@ -98,7 +98,7 @@ void fetch_screen(void)
     kprintf("bytesh");
 
     field(9, "Desktop     ");
-    kprintf("ByteDesktop (text mode)");
+    kprintf("ByteDesktop / ByteWin 95");
 
     char cpu[41];
     truncate_copy(cpu, g_cpu_brand[0] ? g_cpu_brand : "unknown", 40);

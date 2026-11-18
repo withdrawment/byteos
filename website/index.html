@@ -27,8 +27,9 @@
 <h1>A 64-bit operating system you can read end to end.</h1>
 <p class="lead">
 ByteOS boots from its own hand-built El Torito ISO and MBR, enters long mode
-with no GRUB and no libc, and gives you a console, a tiny desktop, a local
-web browser, a file explorer, a text editor, and an installer.
+with no GRUB and no libc, and gives you a console, a classic text desktop, a
+640x480 graphical desktop with a mouse, a local web browser, a file explorer,
+a text editor, and an installer.
 </p>
 
 <p class="buttons">
@@ -45,9 +46,17 @@ web browser, a file explorer, a text editor, and an installer.
     uptime, boot mode, disk, and account details.</p>
   </section>
   <section>
-    <h3>ByteDesktop</h3>
-    <p>Enter <code>start-desktop</code> at the console. A text-mode desktop
-    launches files, browser, editor, terminal, and fetch.</p>
+    <h3>Two desktops</h3>
+    <p>Enter <code>start-desktop</code> and choose the classic text-mode
+    ByteDesktop or ByteWin 95, a genuine 640x480 VGA GUI with a mouse, icons,
+    draggable windows, a Start menu, and a graphical command prompt.</p>
+  </section>
+  <section>
+    <h3>Linux-style shell</h3>
+    <p><code>lsblk</code>, <code>df</code>, <code>mkdir</code>, <code>cd</code>,
+    <code>pwd</code>, <code>touch</code>, <code>rm</code>, <code>uname</code>,
+    <code>date</code>, <code>uptime</code>, and <code>echo</code> join
+    <code>fetch</code>, <code>donut</code>, and the rest.</p>
   </section>
   <section>
     <h3>Local web browser</h3>
@@ -78,8 +87,9 @@ qemu-system-x86_64 -m 1024 -smp 4 \
   -drive file=byteos-disk.img,format=raw,if=ide \
   -boot d</code></pre>
 <p>
-Then run <code>fetch</code>, <code>donut</code>, or <code>start-desktop</code>.
-To install, run <code>byte-install</code> and choose the 64 MiB disk.
+Then run <code>fetch</code>, <code>donut</code>, or <code>start-desktop</code>
+to pick ByteDesktop or ByteWin 95. To install, run <code>byte-install</code>
+and choose the 64 MiB disk.
 </p>
 
 <h2>Project links</h2>
