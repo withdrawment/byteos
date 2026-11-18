@@ -23,12 +23,13 @@ Source and releases: **https://github.com/withdrawment/byteos**
   stored as FNV-1a hashes. `su`, `passwd`, `whoami`, and an installed-disk
   login screen are included.
 - **`fetch`** - a fastfetch-style system screen with live CPU, memory,
-  uptime, disk, boot mode, and account data, plus ByteOS donut ASCII art.
+  uptime, disk, boot mode, and account data, plus shaded 3D torus ASCII art.
 - **ByteDesktop** - a full-screen text-mode desktop with Files, Browser,
   Editor, Terminal, Fetch, and Donut.
 - **ByteWin 95** - a real 640x480 VGA graphics desktop with 16 colours, a
-  mouse cursor, icons, draggable windows, a Start menu, a taskbar, Notepad,
-  My Computer, System Properties, About, and a graphical command prompt.
+  mouse cursor, icons, draggable windows with minimize/maximize controls, a
+  Start menu, a taskbar, Notepad, My Computer, System Properties, About, a
+  native Fetch window, and a graphical command prompt.
 - **Desktop chooser** - `start-desktop` asks which desktop to run each time;
   `start-desktop classic` and `start-desktop win95` skip the prompt.
 - **Linux-style shell** - `pwd`, `cd`, `mkdir`, `rmdir`, `touch`, `rm`,
@@ -189,31 +190,40 @@ Keyboard shortcuts on the desktop menu: `f` Files, `b` Browser, `e` Editor,
 ByteWin 95 is the second desktop: a genuine 640x480 VGA mode 12h GUI with 16
 colours, not a text-mode skin. It saves the text-mode VGA registers, font,
 palette, and screen before switching, so the shell is restored exactly when
-you leave.
+you leave. Rendering uses a 16-pixel SSE2 planar converter and presents only
+the rows that changed, which keeps the pointer and window dragging smooth.
 
 ![ByteWin 95 desktop](screenshots/win95.png)
 
 - **Mouse** - move the pointer, click taskbar buttons, double-click desktop
-  icons or files, drag windows by their title bars, and close them with the
-  box in the title bar.
+  icons or files, drag windows by their title bars, and use the minimize,
+  maximize/restore and close boxes. Double-clicking a title bar toggles
+  maximize too. Clicking the focused window's taskbar button minimizes it.
 - **Start menu** - click Start or press **F10**. It opens My Computer,
   Notepad, Command Prompt, System Properties, About ByteWin 95, the original
-  TUI Browser, HTML Editor, Terminal, Fetch, and Donut, plus Shut Down.
+  TUI Browser, HTML Editor, Terminal, Fetch (a native window), Fetch (TUI),
+  and Donut, plus Restart and Shut Down.
 - **Windows** - overlapping, draggable, focusable windows with an active
-  title bar, a taskbar button each, and a close box.
+  title bar, a taskbar button each, and minimize, maximize and close boxes.
+  Minimized windows stay on the taskbar and restore when clicked.
 - **My Computer** - browses ByteFS on an installed disk, or the read-only
   built-in ISO pages when running live. Double-click folders and files.
+- **Fetch** - a native ByteWin window with the large colour torus and live
+  system data. The graphical `fetch` command opens it, and the original
+  full-screen version is still available as Fetch (TUI).
 - **Command Prompt** - a graphical shell with `ls`/`dir [path]`, `cd`, `pwd`,
   `mkdir`, `rmdir`, `touch`, `rm`, `cat`, `lsblk`, `df`, `free`, `uname`,
   `date`, `uptime`, `hostname`, `echo`, `whoami`, `clear`, `exit`, `fetch`,
-  and `help`.
-- **TUI handoff** - Browser, HTML Editor, Terminal, Fetch, and Donut switch
-  back to text mode, run the original app, then return to the GUI.
+  `history`, and `help`. Up and Down recall previous commands.
+- **TUI handoff** - Browser, HTML Editor, Terminal, Fetch (TUI), and Donut
+  switch back to text mode, run the original app, then return to the GUI.
 
 Keyboard shortcuts: **F10** Start menu, **F12** leave ByteWin 95, **Esc**
-close the focused window, **Tab** cycle windows, arrow keys move through
-icons and menus, and **Enter** launches. F12 and Shut Down both return to the
-ByteOS shell.
+close the focused window, **Tab** cycle visible windows, arrow keys move
+through icons and menus, and **Enter** launches. F12 and Shut Down return to
+the ByteOS shell; Restart reboots the machine.
+
+![ByteWin 95 native Fetch window](screenshots/win95-fetch.png)
 
 ![ByteWin 95 Start menu](screenshots/win95-menu.png)
 
@@ -312,7 +322,9 @@ kernel/ata.c        ATA PIO disk driver
 kernel/bfs.c        ByteFS format, mount, read, write, directories
 kernel/auth.c       accounts, login, su, passwd
 kernel/install.c    byte-install wizard and disk writer
-kernel/fetch.c      fetch system summary
+kernel/fetch.c      fetch system summary and TUI fetch screen
+kernel/fetch_art.c  shared shaded torus ASCII art for TUI and GUI fetch
+kernel/fetch_art.h  fetch art declarations
 kernel/desktop.c    classic ByteDesktop, file explorer, terminal
 kernel/win95.c      VGA mode 12h ByteWin 95 graphical desktop
 kernel/font8x16.h   embedded 8x16 VGA font used by ByteWin 95

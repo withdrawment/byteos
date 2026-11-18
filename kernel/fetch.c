@@ -1,12 +1,11 @@
 #include "kernel.h"
+#include "fetch_art.h"
 
 #define C_BAR   VGA_ATTR(BLACK, LIGHT_CYAN)
 #define C_LABEL VGA_ATTR(LIGHT_CYAN, BLACK)
 #define C_VALUE VGA_ATTR(WHITE, BLACK)
 #define C_DIM   VGA_ATTR(LIGHT_GRAY, BLACK)
 #define C_ACC   VGA_ATTR(YELLOW, BLACK)
-#define C_ART   VGA_ATTR(LIGHT_MAGENTA, BLACK)
-#define C_PINK  VGA_ATTR(LIGHT_RED, BLACK)
 
 static void put(int row, int col, const char *s, uint8_t attr)
 {
@@ -19,6 +18,30 @@ static void field(int row, const char *label)
     console_set_attr(C_LABEL);
     console_puts(label);
     console_set_attr(C_VALUE);
+}
+
+static uint8_t art_attr(char c)
+{
+    switch (c) {
+    case '@': return VGA_ATTR(WHITE, BLACK);
+    case '%': return VGA_ATTR(WHITE, BLACK);
+    case '#': return VGA_ATTR(YELLOW, BLACK);
+    case '*': return VGA_ATTR(LIGHT_RED, BLACK);
+    case '+': return VGA_ATTR(LIGHT_RED, BLACK);
+    case '=': return VGA_ATTR(LIGHT_MAGENTA, BLACK);
+    case '-': return VGA_ATTR(MAGENTA, BLACK);
+    case ':': return VGA_ATTR(LIGHT_BLUE, BLACK);
+    case '.': return VGA_ATTR(BLUE, BLACK);
+    default: return VGA_ATTR(DARK_GRAY, BLACK);
+    }
+}
+
+static void put_art(int row, int col, const char *s)
+{
+    for (int i = 0; s[i]; i++) {
+        if (s[i] != ' ')
+            vga_put_at(row, col + i, s[i], art_attr(s[i]));
+    }
 }
 
 static void truncate_copy(char *dst, const char *src, int max)
@@ -48,25 +71,11 @@ void fetch_screen(void)
     put(0, 33, "system information", C_BAR);
     put(0, 65, "v" BYTEOS_VERSION, C_BAR);
 
-    static const char *art[9] = {
-        "        .-\"\"\"\"\"-.",
-        "      .'   .---.   '.",
-        "     /    /     \\    \\",
-        "    |    |  .-.  |    |",
-        "    |    |  '-'  |    |",
-        "     \\    \\     /    /",
-        "      '.   '---'   .'",
-        "        '-.......-'",
-        ""
-    };
-    static const uint8_t art_colors[8] = {
-        C_ACC, C_ACC, C_ART, C_ART, C_ART, C_ART, C_ACC, C_ACC
-    };
-    for (int i = 0; i < 8; i++)
-        put(3 + i, 2, art[i], art_colors[i]);
+    for (int i = 0; i < FETCH_ART_ROWS; i++)
+        put_art(2 + i, 2, g_fetch_art[i]);
 
-    put(12, 3, "BYTEOS", VGA_ATTR(YELLOW, BLACK));
-    put(13, 3, "0.2 Sprinkles", C_DIM);
+    put(15, 3, "BYTEOS", VGA_ATTR(YELLOW, BLACK));
+    put(16, 3, "0.2 Sprinkles", C_DIM);
 
     console_goto(2, 27);
     console_set_attr(C_ACC);

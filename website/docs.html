@@ -87,16 +87,20 @@ returns to the console when you choose Exit.</p>
 <h3>ByteWin 95</h3>
 <p>A genuine 640x480 VGA mode 12h desktop with 16 colours, a mouse cursor,
 icons, and overlapping windows. It saves and restores the text-mode VGA
-state, so the shell comes back exactly when you leave.</p>
+state, so the shell comes back exactly when you leave. A 16-pixel SSE2 planar
+converter and span-only presentation keep the pointer and window dragging
+smooth.</p>
 <ul>
-  <li><strong>Start menu</strong> - click Start or press F10. It opens My Computer, Notepad, Command Prompt, System Properties, About ByteWin 95, the original TUI apps, and Shut Down.</li>
-  <li><strong>Windows</strong> - drag title bars, click taskbar buttons, double-click icons and files, and use the close box.</li>
+  <li><strong>Start menu</strong> - click Start or press F10. It opens My Computer, Notepad, Command Prompt, System Properties, About ByteWin 95, the original TUI apps, a native Fetch window, Fetch (TUI), Donut, Restart, and Shut Down.</li>
+  <li><strong>Windows</strong> - drag title bars, click taskbar buttons, double-click icons and files, and use the minimize, maximize/restore and close boxes. Double-clicking a title bar also toggles maximize. Clicking the focused window's taskbar button minimizes it.</li>
   <li><strong>My Computer</strong> - browses ByteFS on an installed disk, or the built-in ISO pages when running live.</li>
-  <li><strong>Command Prompt</strong> - a graphical shell with <code>ls</code>/<code>dir</code>, <code>cd</code>, <code>pwd</code>, <code>mkdir</code>, <code>rmdir</code>, <code>touch</code>, <code>rm</code>, <code>cat</code>, <code>lsblk</code>, <code>df</code>, <code>free</code>, <code>uname</code>, <code>date</code>, <code>uptime</code>, <code>hostname</code>, <code>echo</code>, <code>whoami</code>, <code>clear</code>, <code>exit</code>, <code>fetch</code>, and <code>help</code>.</li>
-  <li><strong>TUI handoff</strong> - Browser, HTML Editor, Terminal, Fetch, and Donut switch to text mode, run the original app, then return to the GUI.</li>
+  <li><strong>Fetch</strong> - a native ByteWin window with a large colour torus and live system data. The graphical <code>fetch</code> command opens it; the full-screen version remains as Fetch (TUI).</li>
+  <li><strong>Command Prompt</strong> - a graphical shell with <code>ls</code>/<code>dir</code>, <code>cd</code>, <code>pwd</code>, <code>mkdir</code>, <code>rmdir</code>, <code>touch</code>, <code>rm</code>, <code>cat</code>, <code>lsblk</code>, <code>df</code>, <code>free</code>, <code>uname</code>, <code>date</code>, <code>uptime</code>, <code>hostname</code>, <code>echo</code>, <code>whoami</code>, <code>clear</code>, <code>exit</code>, <code>fetch</code>, <code>history</code>, and <code>help</code>. Up and Down recall previous commands.</li>
+  <li><strong>TUI handoff</strong> - Browser, HTML Editor, Terminal, Fetch (TUI), and Donut switch to text mode, run the original app, then return to the GUI.</li>
 </ul>
 <p>F10 opens Start, F12 leaves ByteWin 95, Esc closes the focused window, Tab
-cycles windows, and Enter launches the selected icon or menu item.</p>
+cycles visible windows, and Enter launches the selected icon or menu item.
+F12 and Shut Down return to the shell; Restart reboots the machine.</p>
 
 <h2>Disk layout</h2>
 <pre><code>LBA 0          MBR (ByteOS stage 1)

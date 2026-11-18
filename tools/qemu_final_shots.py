@@ -125,6 +125,13 @@ def main() -> None:
 
     key(s, "f10", 0.6)
     shot(s, out / "win95-menu.ppm")
+    for _ in range(8):
+        key(s, "down", 0.15)
+    key(s, "ret", 1.5)
+    shot(s, out / "win95-fetch.ppm")
+    key(s, "esc", 0.8)
+
+    key(s, "f10", 0.6)
     key(s, "ret", 1.2)
     shot(s, out / "win95-files.ppm")
     key(s, "esc", 0.6)
@@ -133,8 +140,9 @@ def main() -> None:
     key(s, "down", 0.3)
     key(s, "down", 0.3)
     key(s, "ret", 1.2)
-    run(s, "ls", 0.8)
-    run(s, "df", 0.8)
+    run(s, "help", 0.8)
+    run(s, "pwd", 0.6)
+    run(s, "history", 0.8)
     shot(s, out / "win95-console.ppm")
     key(s, "f12", 1.8)
 

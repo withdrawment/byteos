@@ -1,6 +1,7 @@
 #include "kernel.h"
 #include "site_data.h"
 #include "font8x16.h"
+#include "fetch_art.h"
 #include <stdarg.h>
 
 #define GW 640
@@ -30,7 +31,8 @@ enum {
     APP_NOTEPAD,
     APP_CONSOLE,
     APP_SYSPROP,
-    APP_ABOUT
+    APP_ABOUT,
+    APP_FETCH
 };
 
 enum {
@@ -44,7 +46,9 @@ enum {
     ACT_EDITOR,
     ACT_TERMINAL,
     ACT_FETCH,
+    ACT_FETCH_TUI,
     ACT_DONUT,
+    ACT_RESTART,
     ACT_EXIT
 };
 
@@ -64,8 +68,10 @@ static const start_item_t g_start_items[] = {
     { "HTML Editor", ACT_EDITOR },
     { "Terminal", ACT_TERMINAL },
     { "Fetch", ACT_FETCH },
+    { "Fetch (TUI)", ACT_FETCH_TUI },
     { "Donut", ACT_DONUT },
     { "", ACT_SEP },
+    { "Restart", ACT_RESTART },
     { "Shut Down...", ACT_EXIT }
 };
 
@@ -98,6 +104,13 @@ static uint16_t g_saved_text[80 * 25];
 static uint8_t *g_fb = (uint8_t *)0x200000;
 static uint8_t *g_plane = (uint8_t *)0x300000;
 static int g_gfx_active;
+static uint8_t g_rev8[256];
+static const uint8_t g_plane_masks[4][16] = {
+    { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 },
+    { 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2 },
+    { 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4 },
+    { 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8 }
+};
 
 static void wseq(uint8_t index, uint8_t value)
 {
@@ -490,20 +503,77 @@ static int iabs(int v)
     return v < 0 ? -v : v;
 }
 
-static void present(void)
+static void init_present(void)
 {
-    for (int p = 0; p < 4; p++) {
-        int si = 0;
-        for (int i = 0; i < GW * GH; i += 8) {
-            uint8_t b = 0;
-            for (int k = 0; k < 8; k++)
-                b = (uint8_t)(b | ((g_fb[i + k] >> p) & 1) << (7 - k));
-            g_plane[si++] = b;
+    for (int i = 0; i < 256; i++) {
+        uint8_t v = 0;
+        for (int b = 0; b < 8; b++) {
+            if (i & (1 << b))
+                v = (uint8_t)(v | (0x80 >> b));
         }
+        g_rev8[i] = v;
+    }
+}
+
+static uint16_t plane_bits16(const uint8_t *src, const uint8_t *mask)
+{
+    uint32_t bits;
+    __asm__ volatile(
+        "movdqu (%1), %%xmm0\n"
+        "movdqu (%2), %%xmm1\n"
+        "pand %%xmm1, %%xmm0\n"
+        "pxor %%xmm2, %%xmm2\n"
+        "pcmpeqb %%xmm2, %%xmm0\n"
+        "pmovmskb %%xmm0, %0\n"
+        : "=r"(bits)
+        : "r"(src), "r"(mask)
+        : "xmm0", "xmm1", "xmm2");
+    return (uint16_t)(~bits);
+}
+
+static void present_span(int y0, int y1)
+{
+    if (y0 < 0)
+        y0 = 0;
+    if (y1 > GH)
+        y1 = GH;
+    if (y0 >= y1)
+        return;
+
+    int first = y0 * GW;
+    int last = y1 * GW;
+    int plane_size = (GW * GH) / 8;
+
+    for (int i = first; i < last; i += 16) {
+        uint16_t m0 = plane_bits16(&g_fb[i], g_plane_masks[0]);
+        uint16_t m1 = plane_bits16(&g_fb[i], g_plane_masks[1]);
+        uint16_t m2 = plane_bits16(&g_fb[i], g_plane_masks[2]);
+        uint16_t m3 = plane_bits16(&g_fb[i], g_plane_masks[3]);
+        int off = i / 8;
+        g_plane[off] = g_rev8[m0 & 0xFF];
+        g_plane[off + 1] = g_rev8[m0 >> 8];
+        g_plane[plane_size + off] = g_rev8[m1 & 0xFF];
+        g_plane[plane_size + off + 1] = g_rev8[m1 >> 8];
+        g_plane[plane_size * 2 + off] = g_rev8[m2 & 0xFF];
+        g_plane[plane_size * 2 + off + 1] = g_rev8[m2 >> 8];
+        g_plane[plane_size * 3 + off] = g_rev8[m3 & 0xFF];
+        g_plane[plane_size * 3 + off + 1] = g_rev8[m3 >> 8];
+    }
+
+    int bytes = (y1 - y0) * (GW / 8);
+    int offset = y0 * (GW / 8);
+    uint8_t *vga = (uint8_t *)0xA0000;
+    for (int p = 0; p < 4; p++) {
         wseq(2, (uint8_t)(1 << p));
-        memcpy((void *)0xA0000, g_plane, (GW * GH) / 8);
+        memcpy(vga + offset, g_plane + p * plane_size + offset,
+               (size_t)bytes);
     }
     wseq(2, 0x0F);
+}
+
+static void present(void)
+{
+    present_span(0, GH);
 }
 
 static void fb_circle(int cx, int cy, int radius, uint8_t color)
@@ -699,6 +769,12 @@ typedef struct {
     int y;
     int w;
     int h;
+    int min;
+    int max;
+    int rx;
+    int ry;
+    int rw;
+    int rh;
     int scroll;
     int selected;
     char path[48];
@@ -747,6 +823,26 @@ static char g_con_cwd[64] = "/";
 static char g_con_input[56];
 static int g_con_len;
 static int g_con_scroll;
+
+#define CON_HISTORY 32
+
+static char g_con_hist[CON_HISTORY][56];
+static int g_con_hist_count;
+static int g_con_hist_pos;
+
+static void con_hist_add(const char *s)
+{
+    if (!s || !s[0])
+        return;
+    if (g_con_hist_count == CON_HISTORY) {
+        for (int i = 1; i < CON_HISTORY; i++)
+            str_copy(g_con_hist[i - 1], g_con_hist[i], sizeof(g_con_hist[0]));
+        g_con_hist_count--;
+    }
+    str_copy(g_con_hist[g_con_hist_count], s, sizeof(g_con_hist[0]));
+    g_con_hist_count++;
+    g_con_hist_pos = g_con_hist_count;
+}
 
 static void con_add_line(const char *line)
 {
@@ -1289,16 +1385,17 @@ static void gui_echo(const char *arg)
 static void gui_help(void)
 {
     con_add("ByteWin 95 command prompt");
-    con_add("  ls / dir    list directory      cd <dir>   change directory");
-    con_add("  pwd         print directory    mkdir      create directory");
-    con_add("  rmdir       remove directory   touch      create file");
-    con_add("  rm          delete file        cat        print file");
-    con_add("  lsblk       block devices      df         disk usage");
-    con_add("  free        memory usage       uname      system name");
-    con_add("  date        date and time      uptime     uptime");
-    con_add("  hostname    hostname           echo       print text");
-    con_add("  whoami      current user       clear      clear screen");
-    con_add("  exit        close this window");
+    con_add("  ls/dir   list files      cd <dir> change directory");
+    con_add("  pwd      print directory mkdir    create directory");
+    con_add("  rmdir    remove dir      touch    create file");
+    con_add("  rm       delete file     cat      print file");
+    con_add("  lsblk    block devices   df       disk usage");
+    con_add("  free     memory usage    uname    system name");
+    con_add("  date     date and time   uptime   uptime");
+    con_add("  hostname hostname        echo     print text");
+    con_add("  whoami   current user    clear    clear screen");
+    con_add("  fetch    system info     history  command history");
+    con_add("  exit     close this window");
 }
 
 static int g_con_close;
@@ -1360,14 +1457,13 @@ static void gui_run_command(const char *raw)
     } else if (str_eq_ci(p, "exit")) {
         g_con_close = 1;
     } else if (str_eq_ci(p, "fetch")) {
-        char sz[24];
-        con_printf("ByteOS 0.2 \"Sprinkles\" x86_64");
-        con_printf("CPU     %s", g_cpu_brand[0] ? g_cpu_brand : "unknown");
-        size_text(g_mem_usable, sz, sizeof(sz));
-        con_printf("Memory  %s usable / %u CPUs", sz, g_logical_cpus);
-        con_printf("Uptime  %llu seconds", (unsigned long long)gui_uptime_seconds());
-        con_printf("Shell   bytesh");
-        con_printf("Desktop ByteWin 95 (VGA 640x480x16)");
+        open_app(APP_FETCH);
+        con_add("Opening Fetch window.");
+    } else if (str_eq_ci(p, "history")) {
+        if (g_con_hist_count == 0)
+            con_add("(no history yet)");
+        for (int i = 0; i < g_con_hist_count; i++)
+            con_printf("  %2d  %s", i + 1, g_con_hist[i]);
     } else if (str_eq_ci(p, "version")) {
         con_add("ByteOS 0.2 \"Sprinkles\" / x86_64");
     } else if (str_eq_ci(p, "about")) {
@@ -1536,11 +1632,60 @@ static void bring_front(int idx)
 {
     if (idx < 0 || idx >= MAX_WIN || !g_win[idx].open)
         return;
+    g_win[idx].min = 0;
     remove_order(idx);
     if (g_order_count < MAX_WIN)
         g_order[g_order_count++] = idx;
     g_focus = idx;
     g_start_open = 0;
+}
+
+static void focus_topmost(void)
+{
+    g_focus = -1;
+    for (int i = g_order_count - 1; i >= 0; i--) {
+        int idx = g_order[i];
+        if (!g_win[idx].min) {
+            g_focus = idx;
+            break;
+        }
+    }
+}
+
+static void minimize_win(int idx)
+{
+    if (idx < 0 || idx >= MAX_WIN || !g_win[idx].open)
+        return;
+    g_win[idx].min = 1;
+    g_drag_win = -1;
+    if (g_focus == idx)
+        focus_topmost();
+}
+
+static void toggle_max(int idx)
+{
+    if (idx < 0 || idx >= MAX_WIN || !g_win[idx].open)
+        return;
+    win_t *w = &g_win[idx];
+    w->min = 0;
+    if (w->max) {
+        w->x = w->rx;
+        w->y = w->ry;
+        w->w = w->rw;
+        w->h = w->rh;
+        w->max = 0;
+    } else {
+        w->rx = w->x;
+        w->ry = w->y;
+        w->rw = w->w;
+        w->rh = w->h;
+        w->x = 0;
+        w->y = 0;
+        w->w = GW;
+        w->h = TASKBAR_Y;
+        w->max = 1;
+    }
+    g_drag_win = -1;
 }
 
 static void close_win(int idx)
@@ -1550,7 +1695,7 @@ static void close_win(int idx)
     g_win[idx].open = 0;
     remove_order(idx);
     if (g_focus == idx)
-        g_focus = g_order_count ? g_order[g_order_count - 1] : -1;
+        focus_topmost();
 }
 
 static void open_app(int app)
@@ -1620,6 +1765,13 @@ static void open_app(int app)
         w->w = 470;
         w->h = 280;
         str_copy(w->title, "About ByteWin 95", sizeof(w->title));
+        break;
+    case APP_FETCH:
+        w->x = 20;
+        w->y = 26;
+        w->w = 600;
+        w->h = 396;
+        str_copy(w->title, "Fetch - system information", sizeof(w->title));
         break;
     }
 
@@ -1847,6 +1999,115 @@ static void draw_sysprop(win_t *w, int cx, int cy, int cw, int ch)
     (void)ch;
 }
 
+static uint8_t fetch_art_color(char c)
+{
+    switch (c) {
+    case '@': return G_WHITE;
+    case '%': return G_WHITE;
+    case '#': return G_YELLOW;
+    case '*': return G_RED;
+    case '+': return G_RED;
+    case '=': return G_MAGENTA;
+    case '-': return G_PURPLE;
+    case ':': return G_BLUE;
+    case '.': return G_BLUE;
+    default: return G_NAVY;
+    }
+}
+
+static void draw_fetch(win_t *w, int cx, int cy, int cw, int ch)
+{
+    char line[96];
+    char sz[24];
+    char cpu[40];
+
+    fb_fill(cx + 2, cy + 2, cw - 4, ch - 4, G_SILVER);
+    fb_fill(cx + 10, cy + 12, 320, 300, G_BLACK);
+    fb_bevel(cx + 10, cy + 12, 320, 300, 0);
+
+    for (int row = 0; row < FETCH_ART_LARGE_ROWS; row++) {
+        const char *art = g_fetch_art_large[row];
+        for (int col = 0; art[col]; col++) {
+            if (art[col] == ' ')
+                continue;
+            fb_char(cx + 22 + col * 8, cy + 20 + row * 16,
+                    (unsigned char)art[col], fetch_art_color(art[col]), -1);
+        }
+    }
+
+    fb_text(cx + 22, cy + 330, "BYTEOS", G_YELLOW, -1);
+    fb_text(cx + 78, cy + 330, "0.2 Sprinkles", G_GRAY, -1);
+    fb_text(cx + 10, cy + 352, "Native Fetch: shaded ASCII torus + live system data.",
+            G_GRAY, -1);
+
+    int px = cx + 346;
+    int py = cy + 16;
+    int ly = py + 56;
+
+    fb_text(px, py, "ByteOS 0.2", G_NAVY, -1);
+    fb_text(px, py + 18, "\"Sprinkles\" x86_64", G_BLACK, -1);
+    fb_hline(px, py + 40, cw - 360, G_GRAY);
+    fb_hline(px, py + 41, cw - 360, G_WHITE);
+
+    str_copy(cpu, g_cpu_brand[0] ? g_cpu_brand : "unknown", 30);
+    size_text(g_mem_usable, sz, sizeof(sz));
+
+    fb_text(px, ly, "User", G_GRAY, -1);
+    fb_text(px + 80, ly, auth_is_root() ? "root" : auth_username(), G_BLACK, -1);
+    ly += 18;
+    fb_text(px, ly, "Host", G_GRAY, -1);
+    fb_text(px + 80, ly, auth_hostname(), G_BLACK, -1);
+    ly += 18;
+    fb_text(px, ly, "CPU", G_GRAY, -1);
+    ly += 16;
+    fb_text(px, ly, cpu, G_BLACK, -1);
+    ly += 18;
+    fb_text(px, ly, "Memory", G_GRAY, -1);
+    fb_text(px + 80, ly, sz, G_BLACK, -1);
+    ly += 18;
+    fb_text(px, ly, "CPUs", G_GRAY, -1);
+    format_buf(line, sizeof(line), "%u logical", g_logical_cpus);
+    fb_text(px + 80, ly, line, G_BLACK, -1);
+    ly += 18;
+    fb_text(px, ly, "Uptime", G_GRAY, -1);
+    uint64_t up = gui_uptime_seconds();
+    if (up >= 86400ULL)
+        format_buf(line, sizeof(line), "%llud %lluh",
+                   (unsigned long long)(up / 86400ULL),
+                   (unsigned long long)((up / 3600ULL) % 24ULL));
+    else if (up >= 3600ULL)
+        format_buf(line, sizeof(line), "%lluh %llum",
+                   (unsigned long long)(up / 3600ULL),
+                   (unsigned long long)((up / 60ULL) % 60ULL));
+    else
+        format_buf(line, sizeof(line), "%llum %llus",
+                   (unsigned long long)(up / 60ULL),
+                   (unsigned long long)(up % 60ULL));
+    fb_text(px + 80, ly, line, G_BLACK, -1);
+    ly += 18;
+    fb_text(px, ly, "Shell", G_GRAY, -1);
+    fb_text(px + 80, ly, "bytesh", G_BLACK, -1);
+    ly += 18;
+    fb_text(px, ly, "Desktop", G_GRAY, -1);
+    fb_text(px + 80, ly, "ByteWin 95", G_BLACK, -1);
+    ly += 18;
+    fb_text(px, ly, "Display", G_GRAY, -1);
+    fb_text(px + 80, ly, "640x480 x 16", G_BLACK, -1);
+    ly += 18;
+    fb_text(px, ly, "Disk", G_GRAY, -1);
+    if (bfs_mounted())
+        format_buf(line, sizeof(line), "bytefs on sd%c1", (char)('a' + bfs_slot()));
+    else
+        str_copy(line, "romfs (live ISO)", sizeof(line));
+    fb_text(px + 80, ly, line, G_BLACK, -1);
+
+    fb_text(px, ly + 34, "Start > Fetch (TUI)", G_NAVY, -1);
+    fb_text(px, ly + 50, "for the text-mode version.", G_GRAY, -1);
+
+    (void)w;
+    (void)ch;
+}
+
 static void draw_about(win_t *w, int cx, int cy, int cw, int ch)
 {
     fb_fill(cx + 2, cy + 2, cw - 4, ch - 4, G_SILVER);
@@ -1876,7 +2137,7 @@ static void draw_about(win_t *w, int cx, int cy, int cw, int ch)
 static void draw_window(int idx)
 {
     win_t *w = &g_win[idx];
-    if (!w->open)
+    if (!w->open || w->min)
         return;
 
     int active = (idx == g_focus);
@@ -1901,6 +2162,28 @@ static void draw_window(int idx)
         fb_px(bx + 10 - i, by + 4 + i, G_BLACK);
     }
 
+    int mx = bx - 18;
+    fb_fill(mx, by, 14, 14, G_SILVER);
+    fb_bevel(mx, by, 14, 14, 1);
+    if (w->max) {
+        fb_hline(mx + 3, by + 4, 6, G_BLACK);
+        fb_vline(mx + 3, by + 4, 6, G_BLACK);
+        fb_hline(mx + 3, by + 10, 7, G_BLACK);
+        fb_vline(mx + 9, by + 4, 7, G_BLACK);
+        fb_hline(mx + 6, by + 3, 5, G_BLACK);
+        fb_vline(mx + 10, by + 3, 6, G_BLACK);
+    } else {
+        fb_hline(mx + 4, by + 4, 7, G_BLACK);
+        fb_hline(mx + 4, by + 10, 7, G_BLACK);
+        fb_vline(mx + 4, by + 4, 7, G_BLACK);
+        fb_vline(mx + 10, by + 4, 7, G_BLACK);
+    }
+
+    int mn = mx - 18;
+    fb_fill(mn, by, 14, 14, G_SILVER);
+    fb_bevel(mn, by, 14, 14, 1);
+    fb_hline(mn + 4, by + 10, 7, G_BLACK);
+
     int cx, cy, cw, ch;
     client_rect(w, &cx, &cy, &cw, &ch);
     switch (w->app) {
@@ -1918,6 +2201,9 @@ static void draw_window(int idx)
         break;
     case APP_ABOUT:
         draw_about(w, cx, cy, cw, ch);
+        break;
+    case APP_FETCH:
+        draw_fetch(w, cx, cy, cw, ch);
         break;
     }
 }
@@ -2003,11 +2289,12 @@ static void draw_taskbar(void)
     for (int i = 0; i < g_order_count; i++) {
         int idx = g_order[i];
         win_t *w = &g_win[idx];
+        int active = (idx == g_focus && !w->min);
         fb_fill(bx, TASKBAR_Y + 3, 100, 24, G_SILVER);
-        fb_bevel(bx, TASKBAR_Y + 3, 100, 24, idx == g_focus ? 0 : 1);
+        fb_bevel(bx, TASKBAR_Y + 3, 100, 24, active ? 0 : 1);
         char label[14];
         str_copy(label, w->title, sizeof(label));
-        fb_text(bx + 5, TASKBAR_Y + 6, label, G_BLACK, -1);
+        fb_text(bx + 5, TASKBAR_Y + 6, label, w->min ? G_GRAY : G_BLACK, -1);
         bx += 104;
     }
 
@@ -2072,13 +2359,41 @@ static void draw_start_menu(void)
         case ACT_BROWSER: icon_kind = ICON_GLOBE; break;
         case ACT_EDITOR: icon_kind = ICON_EDITOR; break;
         case ACT_FETCH: icon_kind = ICON_CHART; break;
+        case ACT_FETCH_TUI: icon_kind = ICON_TERM; break;
         case ACT_DONUT: icon_kind = ICON_DONUT; break;
+        case ACT_RESTART: icon_kind = ICON_GEAR; break;
         case ACT_EXIT: icon_kind = ICON_POWER; break;
         }
         draw_small_icon(icon_kind, 29, y + 3);
         fb_text(50, y + 3, g_start_items[i].label, fg, bg);
         y += 22;
     }
+}
+
+#define CUR_W 12
+#define CUR_H 17
+
+static uint8_t g_cursor_bg[CUR_W * CUR_H];
+static int g_cursor_bg_x;
+static int g_cursor_bg_y;
+static int g_cursor_bg_valid;
+
+static void cursor_restore(void)
+{
+    if (!g_cursor_bg_valid)
+        return;
+    for (int row = 0; row < CUR_H; row++) {
+        int py = g_cursor_bg_y + row;
+        if (py < 0 || py >= GH)
+            continue;
+        for (int col = 0; col < CUR_W; col++) {
+            int px = g_cursor_bg_x + col;
+            if (px < 0 || px >= GW)
+                continue;
+            g_fb[py * GW + px] = g_cursor_bg[row * CUR_W + col];
+        }
+    }
+    g_cursor_bg_valid = 0;
 }
 
 static void draw_cursor(void)
@@ -2102,11 +2417,23 @@ static void draw_cursor(void)
         "     #..#   ",
         "      ##    "
     };
+    cursor_restore();
     int mx, my, buttons;
     mouse_get_state(&mx, &my, &buttons);
     (void)buttons;
-    for (int row = 0; row < 17; row++) {
-        for (int col = 0; col < 12; col++) {
+    g_cursor_bg_x = mx;
+    g_cursor_bg_y = my;
+    for (int row = 0; row < CUR_H; row++) {
+        int py = my + row;
+        for (int col = 0; col < CUR_W; col++) {
+            int px = mx + col;
+            if (px < 0 || px >= GW || py < 0 || py >= GH)
+                continue;
+            g_cursor_bg[row * CUR_W + col] = g_fb[py * GW + px];
+        }
+    }
+    for (int row = 0; row < CUR_H; row++) {
+        for (int col = 0; col < CUR_W; col++) {
             char c = shape[row][col];
             if (c == '#')
                 fb_px(mx + col, my + row, G_BLACK);
@@ -2114,6 +2441,7 @@ static void draw_cursor(void)
                 fb_px(mx + col, my + row, G_WHITE);
         }
     }
+    g_cursor_bg_valid = 1;
 }
 
 static int window_at(int mx, int my)
@@ -2121,6 +2449,8 @@ static int window_at(int mx, int my)
     for (int i = g_order_count - 1; i >= 0; i--) {
         int idx = g_order[i];
         win_t *w = &g_win[idx];
+        if (w->min)
+            continue;
         if (mx >= w->x && mx < w->x + w->w &&
             my >= w->y && my < w->y + w->h)
             return idx;
@@ -2193,10 +2523,16 @@ static void start_action(int action)
         run_tui(tui_terminal);
         break;
     case ACT_FETCH:
+        open_app(APP_FETCH);
+        break;
+    case ACT_FETCH_TUI:
         run_tui(fetch_screen);
         break;
     case ACT_DONUT:
         run_tui(donut_mode);
+        break;
+    case ACT_RESTART:
+        g_quit = 2;
         break;
     case ACT_EXIT:
         g_quit = 1;
@@ -2246,8 +2582,12 @@ static void handle_click(int mx, int my, int dbl)
             return;
         }
         int idx = taskbar_button_at(mx, my);
-        if (idx >= 0)
-            bring_front(idx);
+        if (idx >= 0) {
+            if (idx == g_focus && !g_win[idx].min)
+                minimize_win(idx);
+            else
+                bring_front(idx);
+        }
         return;
     }
 
@@ -2255,15 +2595,32 @@ static void handle_click(int mx, int my, int dbl)
     if (idx >= 0) {
         bring_front(idx);
         win_t *w = &g_win[idx];
-        if (mx >= w->x + w->w - 18 && mx < w->x + w->w - 4 &&
-            my >= w->y + 4 && my < w->y + 18) {
-            close_win(idx);
-            return;
+        int bx = w->x + w->w - 18;
+        int by = w->y + 4;
+        if (my >= by && my < by + 14) {
+            if (mx >= bx && mx < bx + 14) {
+                close_win(idx);
+                return;
+            }
+            if (mx >= bx - 18 && mx < bx - 4) {
+                toggle_max(idx);
+                return;
+            }
+            if (mx >= bx - 36 && mx < bx - 22) {
+                minimize_win(idx);
+                return;
+            }
         }
         if (my < w->y + 22) {
-            g_drag_win = idx;
-            g_drag_dx = mx - w->x;
-            g_drag_dy = my - w->y;
+            if (dbl) {
+                toggle_max(idx);
+                return;
+            }
+            if (!w->max) {
+                g_drag_win = idx;
+                g_drag_dx = mx - w->x;
+                g_drag_dy = my - w->y;
+            }
             return;
         }
         app_click(idx, mx, my, dbl);
@@ -2291,6 +2648,7 @@ static void console_key(int key)
         format_buf(line, sizeof(line), "%s%s", prompt, g_con_input);
         con_add(line);
         g_con_input[g_con_len] = 0;
+        con_hist_add(g_con_input);
         gui_run_command(g_con_input);
         g_con_len = 0;
         g_con_input[0] = 0;
@@ -2306,6 +2664,27 @@ static void console_key(int key)
             g_con_len--;
             g_con_input[g_con_len] = 0;
         }
+    } else if (key == KEY_UP) {
+        if (g_con_hist_count > 0) {
+            if (g_con_hist_pos > 0)
+                g_con_hist_pos--;
+            str_copy(g_con_input, g_con_hist[g_con_hist_pos],
+                     sizeof(g_con_input));
+            g_con_len = (int)kstrlen(g_con_input);
+        }
+    } else if (key == KEY_DOWN) {
+        if (g_con_hist_pos < g_con_hist_count) {
+            g_con_hist_pos++;
+            if (g_con_hist_pos >= g_con_hist_count) {
+                g_con_hist_pos = g_con_hist_count;
+                g_con_input[0] = 0;
+                g_con_len = 0;
+            } else {
+                str_copy(g_con_input, g_con_hist[g_con_hist_pos],
+                         sizeof(g_con_input));
+                g_con_len = (int)kstrlen(g_con_input);
+            }
+        }
     } else if (key == KEY_PGUP) {
         int max = g_con_count - 1;
         g_con_scroll += 8;
@@ -2318,6 +2697,7 @@ static void console_key(int key)
     } else if (key >= 32 && key < 127 && g_con_len < 52) {
         g_con_input[g_con_len++] = (char)key;
         g_con_input[g_con_len] = 0;
+        g_con_hist_pos = g_con_hist_count;
     }
 }
 
@@ -2463,8 +2843,13 @@ static void global_key(int key)
             if (g_order[i] == g_focus)
                 pos = i;
         }
-        pos = (pos + 1) % g_order_count;
-        bring_front(g_order[pos]);
+        for (int guard = 0; guard < g_order_count; guard++) {
+            pos = (pos + 1) % g_order_count;
+            if (!g_win[g_order[pos]].min) {
+                bring_front(g_order[pos]);
+                break;
+            }
+        }
         return;
     }
 
@@ -2496,6 +2881,7 @@ static void global_key(int key)
 
 static void draw_all(void)
 {
+    g_cursor_bg_valid = 0;
     draw_desktop();
     draw_taskbar();
     if (g_start_open)
@@ -2511,6 +2897,7 @@ int win95_desktop(void)
     mouse_init();
     mouse_flush();
     kbd_drain();
+    init_present();
 
     memset(g_win, 0, sizeof(g_win));
     g_order_count = 0;
@@ -2522,6 +2909,7 @@ int win95_desktop(void)
     g_quit = 0;
     g_con_close = 0;
     g_con_scroll = 0;
+    g_con_hist_pos = g_con_hist_count;
     g_last_click_tsc = 0;
 
     draw_all();
@@ -2529,6 +2917,7 @@ int win95_desktop(void)
 
     uint64_t next_clock = g_tsc_hz ? read_tsc() + g_tsc_hz : 0;
     uint64_t next_frame = 0;
+    int pending = 0;
 
     for (;;) {
         int mx, my;
@@ -2536,10 +2925,8 @@ int win95_desktop(void)
         mouse_poll();
         int nmx, nmy;
         mouse_get_state(&nmx, &nmy, 0);
-
-        int dirty = 0;
-        if (nmx != mx || nmy != my)
-            dirty = 1;
+        int moved = (nmx != mx || nmy != my);
+        int need_full = 0;
 
         if (g_drag_win >= 0) {
             win_t *w = &g_win[g_drag_win];
@@ -2553,7 +2940,7 @@ int win95_desktop(void)
                 w->x = GW - w->w;
             if (w->y + w->h > TASKBAR_Y)
                 w->y = TASKBAR_Y - w->h;
-            dirty = 1;
+            need_full = 1;
         }
 
         if (mouse_take_click()) {
@@ -2573,46 +2960,58 @@ int win95_desktop(void)
                 g_last_click_y = nmy;
             }
             handle_click(nmx, nmy, dbl);
-            dirty = 1;
+            need_full = 1;
         }
 
         if (mouse_take_release()) {
             g_drag_win = -1;
-            dirty = 1;
+            need_full = 1;
         }
 
         int key = kbd_getkey();
         if (key >= 0) {
             global_key(key);
-            dirty = 1;
+            need_full = 1;
         }
 
         uint64_t now = read_tsc();
         if (g_tsc_hz && now >= next_clock) {
-            dirty = 1;
+            need_full = 1;
             next_clock += g_tsc_hz;
             if (next_clock <= now)
                 next_clock = now + g_tsc_hz;
         }
 
-        if (dirty && (!g_tsc_hz || now >= next_frame)) {
+        if (need_full)
+            pending = 1;
+
+        if (pending && (!g_tsc_hz || now >= next_frame)) {
             draw_all();
             present();
+            pending = 0;
             if (g_tsc_hz)
-                next_frame = now + g_tsc_hz / 40;
-            dirty = 0;
+                next_frame = now + g_tsc_hz / 50;
+        } else if (moved && !pending) {
+            cursor_restore();
+            draw_cursor();
+            int top = my < nmy ? my : nmy;
+            int bottom = (my > nmy ? my : nmy) + CUR_H;
+            present_span(top, bottom);
         }
 
         if (g_quit)
             break;
 
-        if (!dirty)
+        if (!pending)
             __asm__ volatile("pause");
     }
 
     g_drag_win = -1;
     mouse_flush();
+    int restart = (g_quit == 2);
     vga_leave_graphics();
+    if (restart)
+        reboot();
     return 0;
 }
 
