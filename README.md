@@ -29,7 +29,8 @@ Source and releases: **https://github.com/withdrawment/byteos**
 - **ByteWin 95** - a real 640x480 VGA graphics desktop with 16 colours, a
   mouse cursor, icons, draggable windows with minimize/maximize controls, a
   Start menu, a taskbar, Notepad, My Computer, System Properties, About, a
-  native Fetch window, and a graphical command prompt.
+  native Fetch window, a starfield screensaver, and a graphical command
+  prompt.
 - **Desktop chooser** - `start-desktop` asks which desktop to run each time;
   `start-desktop classic` and `start-desktop win95` skip the prompt.
 - **Linux-style shell** - `pwd`, `cd`, `mkdir`, `rmdir`, `touch`, `rm`,
@@ -202,7 +203,7 @@ the rows that changed, which keeps the pointer and window dragging smooth.
 - **Start menu** - click Start or press **F10**. It opens My Computer,
   Notepad, Command Prompt, System Properties, About ByteWin 95, the original
   TUI Browser, HTML Editor, Terminal, Fetch (a native window), Fetch (TUI),
-  and Donut, plus Restart and Shut Down.
+  Donut, and Screensaver, plus Restart and Shut Down.
 - **Windows** - overlapping, draggable, focusable windows with an active
   title bar, a taskbar button each, and minimize, maximize and close boxes.
   Minimized windows stay on the taskbar and restore when clicked.
@@ -211,6 +212,9 @@ the rows that changed, which keeps the pointer and window dragging smooth.
 - **Fetch** - a native ByteWin window with the large colour torus and live
   system data. The graphical `fetch` command opens it, and the original
   full-screen version is still available as Fetch (TUI).
+- **Screensaver** - a colour starfield warp starts after 60 seconds without
+  input, or on demand from Start > Screensaver. Any key or mouse movement
+  returns to the desktop.
 - **Command Prompt** - a graphical shell with `ls`/`dir [path]`, `cd`, `pwd`,
   `mkdir`, `rmdir`, `touch`, `rm`, `cat`, `lsblk`, `df`, `free`, `uname`,
   `date`, `uptime`, `hostname`, `echo`, `whoami`, `clear`, `exit`, `fetch`,
@@ -224,6 +228,8 @@ through icons and menus, and **Enter** launches. F12 and Shut Down return to
 the ByteOS shell; Restart reboots the machine.
 
 ![ByteWin 95 native Fetch window](screenshots/win95-fetch.png)
+
+![ByteWin 95 starfield screensaver](screenshots/win95-screensaver.png)
 
 ![ByteWin 95 Start menu](screenshots/win95-menu.png)
 

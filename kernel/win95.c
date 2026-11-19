@@ -48,6 +48,7 @@ enum {
     ACT_FETCH,
     ACT_FETCH_TUI,
     ACT_DONUT,
+    ACT_SCREENSAVER,
     ACT_RESTART,
     ACT_EXIT
 };
@@ -70,6 +71,7 @@ static const start_item_t g_start_items[] = {
     { "Fetch", ACT_FETCH },
     { "Fetch (TUI)", ACT_FETCH_TUI },
     { "Donut", ACT_DONUT },
+    { "Screensaver", ACT_SCREENSAVER },
     { "", ACT_SEP },
     { "Restart", ACT_RESTART },
     { "Shut Down...", ACT_EXIT }
@@ -335,6 +337,30 @@ static void fb_hline(int x, int y, int w, uint8_t color)
 static void fb_vline(int x, int y, int h, uint8_t color)
 {
     fb_fill(x, y, 1, h, color);
+}
+
+static void fb_line(int x0, int y0, int x1, int y1, uint8_t color)
+{
+    int dx = x1 > x0 ? x1 - x0 : x0 - x1;
+    int dy = y1 > y0 ? y0 - y1 : y1 - y0;
+    int sx = x0 < x1 ? 1 : -1;
+    int sy = y0 < y1 ? 1 : -1;
+    int err = dx + dy;
+
+    for (;;) {
+        fb_px(x0, y0, color);
+        if (x0 == x1 && y0 == y1)
+            break;
+        int e2 = err * 2;
+        if (e2 >= dy) {
+            err += dy;
+            x0 += sx;
+        }
+        if (e2 <= dx) {
+            err += dx;
+            y0 += sy;
+        }
+    }
 }
 
 static void fb_bevel(int x, int y, int w, int h, int raised)
@@ -610,6 +636,7 @@ static void fb_ring(int cx, int cy, int outer, int inner, uint8_t color)
 #define ICON_POWER    10
 #define ICON_FOLDER   11
 #define ICON_FILE     12
+#define ICON_STAR     13
 
 static void draw_big_icon(int kind, int x, int y)
 {
@@ -758,6 +785,15 @@ static void draw_small_icon(int kind, int x, int y)
     case ICON_POWER:
         fb_circle(x + 8, y + 8, 7, G_MAROON);
         fb_fill(x + 7, y + 3, 2, 6, G_WHITE);
+        break;
+    case ICON_STAR:
+        fb_fill(x + 6, y + 6, 4, 4, G_YELLOW);
+        fb_px(x + 7, y + 1, G_WHITE);
+        fb_px(x + 8, y + 14, G_WHITE);
+        fb_px(x + 1, y + 7, G_WHITE);
+        fb_px(x + 14, y + 8, G_WHITE);
+        fb_px(x + 3, y + 3, G_CYAN);
+        fb_px(x + 12, y + 12, G_CYAN);
         break;
     }
 }
@@ -1042,6 +1078,7 @@ static void note_reflow(void)
 static void open_app(int app);
 static void close_win(int idx);
 static void bring_front(int idx);
+static void run_screensaver(void);
 
 static int cmd_match(const char *p, const char *name, const char **arg)
 {
@@ -2361,6 +2398,7 @@ static void draw_start_menu(void)
         case ACT_FETCH: icon_kind = ICON_CHART; break;
         case ACT_FETCH_TUI: icon_kind = ICON_TERM; break;
         case ACT_DONUT: icon_kind = ICON_DONUT; break;
+        case ACT_SCREENSAVER: icon_kind = ICON_STAR; break;
         case ACT_RESTART: icon_kind = ICON_GEAR; break;
         case ACT_EXIT: icon_kind = ICON_POWER; break;
         }
@@ -2530,6 +2568,9 @@ static void start_action(int action)
         break;
     case ACT_DONUT:
         run_tui(donut_mode);
+        break;
+    case ACT_SCREENSAVER:
+        run_screensaver();
         break;
     case ACT_RESTART:
         g_quit = 2;
@@ -2889,6 +2930,137 @@ static void draw_all(void)
     draw_cursor();
 }
 
+#define STAR_COUNT 240
+#define STAR_Z_MAX 256
+
+static uint32_t star_rand(uint32_t *seed)
+{
+    *seed = *seed * 1103515245u + 12345u;
+    return *seed >> 8;
+}
+
+static void run_screensaver(void)
+{
+    static int16_t star_x[STAR_COUNT];
+    static int16_t star_y[STAR_COUNT];
+    static int16_t star_z[STAR_COUNT];
+    int mx0, my0, buttons0;
+    uint32_t seed;
+    int done = 0;
+
+    mouse_poll();
+    mouse_take_click();
+    mouse_take_release();
+    mouse_get_state(&mx0, &my0, &buttons0);
+    (void)buttons0;
+    kbd_drain();
+
+    seed = (uint32_t)read_tsc() ^ 0x9E3779B9u;
+    if (seed == 0)
+        seed = 1;
+
+    for (int i = 0; i < STAR_COUNT; i++) {
+        star_x[i] = (int16_t)((int)(star_rand(&seed) % 641u) - 320);
+        star_y[i] = (int16_t)((int)(star_rand(&seed) % 481u) - 240);
+        star_z[i] = (int16_t)(3 + star_rand(&seed) % (STAR_Z_MAX - 3));
+    }
+
+    while (!done) {
+        uint64_t frame = read_tsc();
+        fb_fill(0, 0, GW, GH, G_BLACK);
+
+        for (int i = 0; i < STAR_COUNT; i++) {
+            int speed = 2 + (i & 3);
+            int z = star_z[i] - speed;
+            if (z <= 2) {
+                star_x[i] = (int16_t)((int)(star_rand(&seed) % 641u) - 320);
+                star_y[i] = (int16_t)((int)(star_rand(&seed) % 481u) - 240);
+                z = STAR_Z_MAX;
+            }
+            star_z[i] = (int16_t)z;
+
+            int px = 320 + (star_x[i] * 160) / z;
+            int py = 240 + (star_y[i] * 160) / z;
+            int oz = z + speed;
+            int ox = 320 + (star_x[i] * 160) / oz;
+            int oy = 240 + (star_y[i] * 160) / oz;
+            if (z > 16 && px > -700 && px < GW + 700 &&
+                py > -500 && py < GH + 500 &&
+                ox > -700 && ox < GW + 700 &&
+                oy > -500 && oy < GH + 500) {
+                uint8_t trail;
+                if (z > 150)
+                    trail = G_NAVY;
+                else if (z > 100)
+                    trail = G_BLUE;
+                else if (z > 50)
+                    trail = G_CYAN;
+                else
+                    trail = G_SILVER;
+                fb_line(ox, oy, px, py, trail);
+            }
+        }
+
+        for (int i = 0; i < STAR_COUNT; i++) {
+            int z = star_z[i];
+            int px = 320 + (star_x[i] * 160) / z;
+            int py = 240 + (star_y[i] * 160) / z;
+            if (px < 0 || px >= GW || py < 0 || py >= GH)
+                continue;
+
+            uint8_t color;
+            int size;
+            if (z > 200) {
+                color = G_BLUE;
+                size = 1;
+            } else if (z > 150) {
+                color = G_CYAN;
+                size = 1;
+            } else if (z > 100) {
+                color = G_CYAN;
+                size = 2;
+            } else if (z > 50) {
+                color = G_WHITE;
+                size = 2;
+            } else {
+                color = G_YELLOW;
+                size = 3;
+            }
+            fb_fill(px, py, size, size, color);
+        }
+
+        fb_text_center(0, GH - 42, GW, "ByteOS 0.2", G_NAVY, -1);
+        fb_text_center(0, GH - 24, GW, "move the mouse to return", G_BLUE, -1);
+        present();
+
+        for (;;) {
+            mouse_poll();
+            if (mouse_take_click()) {
+                mouse_take_release();
+                done = 1;
+                break;
+            }
+            int mx, my, buttons;
+            mouse_get_state(&mx, &my, &buttons);
+            if (mx != mx0 || my != my0) {
+                done = 1;
+                break;
+            }
+            int key = kbd_getkey();
+            if (key >= 0) {
+                done = 1;
+                break;
+            }
+            if (!g_tsc_hz || read_tsc() - frame >= g_tsc_hz / 30)
+                break;
+            __asm__ volatile("pause");
+        }
+    }
+
+    draw_all();
+    present();
+}
+
 int win95_desktop(void)
 {
     if (vga_enter_graphics() != 0)
@@ -2917,11 +3089,12 @@ int win95_desktop(void)
 
     uint64_t next_clock = g_tsc_hz ? read_tsc() + g_tsc_hz : 0;
     uint64_t next_frame = 0;
+    uint64_t last_input = read_tsc();
     int pending = 0;
 
     for (;;) {
-        int mx, my;
-        mouse_get_state(&mx, &my, 0);
+        int mx, my, buttons;
+        mouse_get_state(&mx, &my, &buttons);
         mouse_poll();
         int nmx, nmy;
         mouse_get_state(&nmx, &nmy, 0);
@@ -2943,7 +3116,8 @@ int win95_desktop(void)
             need_full = 1;
         }
 
-        if (mouse_take_click()) {
+        int clicked = mouse_take_click();
+        if (clicked) {
             uint64_t now = read_tsc();
             int dbl = 0;
             if (g_tsc_hz && g_last_click_tsc &&
@@ -2963,7 +3137,8 @@ int win95_desktop(void)
             need_full = 1;
         }
 
-        if (mouse_take_release()) {
+        int released = mouse_take_release();
+        if (released) {
             g_drag_win = -1;
             need_full = 1;
         }
@@ -2975,6 +3150,8 @@ int win95_desktop(void)
         }
 
         uint64_t now = read_tsc();
+        if (moved || clicked || released || key >= 0)
+            last_input = now;
         if (g_tsc_hz && now >= next_clock) {
             need_full = 1;
             next_clock += g_tsc_hz;
@@ -2997,6 +3174,14 @@ int win95_desktop(void)
             int top = my < nmy ? my : nmy;
             int bottom = (my > nmy ? my : nmy) + CUR_H;
             present_span(top, bottom);
+        }
+
+        if (g_tsc_hz && !pending && !g_start_open && g_drag_win < 0 &&
+            buttons == 0 && now - last_input > g_tsc_hz * 60ULL) {
+            run_screensaver();
+            last_input = read_tsc();
+            now = last_input;
+            next_frame = last_input + g_tsc_hz / 50;
         }
 
         if (g_quit)
