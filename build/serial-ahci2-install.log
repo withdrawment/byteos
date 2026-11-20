@@ -1,0 +1,56 @@
+ByteOS boot
+a20 ok
+e820 ok
+long mode ok
+
+ByteOS 0.2 boot
+vga: ok
+kbd: ok
+cpu: QEMU Virtual CPU version 2.5+
+memory: e820 ok
+ahci: pci match
+ahci: class 0x0000000001060102
+ahci: controller
+ahci: bar 0x00000000febf1000
+ahci: cap 0x00000000c0141f05
+ahci: pi 0x000000000000003f
+ahci: disk port 0x0000000000000000
+disk ahci: QEMU HARDDISK (slot 4)
+  CPU  : QEMU Virtual CPU version 2.5+
+  MEM  : 1023 MiB usable  |  CPUs: 4  |  TSC: ~2455 MHz
+  SYS  : x86_64 long mode  |  VGA 80x25  |  BIOS El Torito  |  VM
+live@byteos:/$ 
+live@byteos:/$ byte-install
+BYTEOS INSTALLER
+--------------------------------------------------------------------------------
+This writes a complete ByteOS system to a raw ATA disk.
+Every sector on the selected disk will be erased.
+Use a spare disk or a QEMU image, never your main system disk.
+
+Available ATA disks:
+  1) QEMU HARDDISK                           64 MiB  (slot 4)
+
+Installation disk [1-1]: 1
+
+Target: QEMU HARDDISK, 64 MiB (131072 sectors)
+
+Username: byte
+Password: ****
+Repeat password: ****
+Root password: ****
+Repeat root password: ****
+Hostname [byteos]: 
+
+Type INSTALL to erase QEMU HARDDISK: install
+
+  [1/5] Writing MBR and partition table...
+  [2/5] Writing stage 2 (65 sectors)...
+  [3/5] Writing kernel (566 sectors)...
+  [4/5] Formatting ByteFS at LBA 2048...
+  [5/5] Installing files and accounts...
+
+  ByteOS is installed on QEMU HARDDISK.
+  User: byte   Host: byteos   Filesystem: ByteFS
+  Remove the ISO/USB, boot from the disk, and sign in.
+
+  Press R to reboot, any other key to stay in the live shell.

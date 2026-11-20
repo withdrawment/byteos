@@ -34,6 +34,29 @@ static inline void cpuid(uint32_t leaf, uint32_t subleaf, uint32_t *a,
 }
 
  
+static uint64_t tsc_from_cpuid(void)
+{
+    uint32_t a, b, c, d;
+
+    if (g_max_leaf >= 0x15u) {
+        cpuid(0x15u, 0, &a, &b, &c, &d);
+        if (a && b && c) {
+            uint64_t hz = (uint64_t)c * (uint64_t)b / (uint64_t)a;
+            if (hz >= 100000000ULL && hz <= 20000000000ULL)
+                return hz;
+        }
+    }
+    if (g_max_leaf >= 0x16u) {
+        cpuid(0x16u, 0, &a, &b, &c, &d);
+        if (a) {
+            uint64_t hz = (uint64_t)a * 1000000ULL;
+            if (hz >= 100000000ULL && hz <= 20000000000ULL)
+                return hz;
+        }
+    }
+    return 0;
+}
+
 uint64_t calibrate_tsc(void)
 {
      
@@ -49,7 +72,7 @@ uint64_t calibrate_tsc(void)
     while (!(inb(0x61) & 0x20)) {
         if (++guard > 50000000u) {
             outb(0x61, p61);
-            return 0;
+            return tsc_from_cpuid();
         }
     }
     uint64_t t1 = rdtsc_ordered();
@@ -57,7 +80,7 @@ uint64_t calibrate_tsc(void)
 
     uint64_t hz = (t1 - t0) * 100ULL;
     if (hz < 100000000ULL || hz > 20000000000ULL)
-        return 0;
+        return tsc_from_cpuid();
     return hz;
 }
 
@@ -322,6 +345,8 @@ static const char shiftmap[128] = {
 static int g_shift;
 static int g_caps;
 static int g_ctrl;
+static int g_alt;
+static int g_super;
 
 static int read_scancode(void)
 {
@@ -350,6 +375,14 @@ int kbd_getkey(void)
             int next = read_scancode();
             if (next < 0)
                 return -1;
+            if (next == 0x5B || next == 0x5C) {
+                g_super = 1;
+                continue;
+            }
+            if (next == 0xDB || next == 0xDC) {
+                g_super = 0;
+                continue;
+            }
             if (next & 0x80)
                 continue;
             switch (next) {
@@ -366,12 +399,29 @@ int kbd_getkey(void)
             }
         }
 
+        if (sc == 0xE1) {
+            for (int i = 0; i < 5; i++) {
+                uint8_t st;
+                for (int g = 0; g < 100000; g++) {
+                    st = inb(0x64);
+                    if (st & 0x01)
+                        break;
+                }
+                if (!(st & 0x01))
+                    break;
+                (void)inb(0x60);
+            }
+            continue;
+        }
+
         if (sc & 0x80) {
             uint8_t make = sc & 0x7F;
             if (make == 0x2A || make == 0x36)
                 g_shift = 0;
             if (make == 0x1D)
                 g_ctrl = 0;
+            if (make == 0x38)
+                g_alt = 0;
             continue;
         }
 
@@ -381,6 +431,10 @@ int kbd_getkey(void)
         }
         if (sc == 0x1D) {
             g_ctrl = 1;
+            continue;
+        }
+        if (sc == 0x38) {
+            g_alt = 1;
             continue;
         }
         if (sc == 0x3A) {
@@ -432,10 +486,64 @@ int kbd_waitkey(void)
     }
 }
 
+int kbd_mods(void)
+{
+    return (g_shift ? KBD_MOD_SHIFT : 0) |
+           (g_ctrl ? KBD_MOD_CTRL : 0) |
+           (g_alt ? KBD_MOD_ALT : 0) |
+           (g_super ? KBD_MOD_SUPER : 0);
+}
+
+static int g_serial_ready;
+
+void serial_init(void)
+{
+    outb(0x3F8 + 7, 0xAE);
+    if (inb(0x3F8 + 7) != 0xAE) {
+        g_serial_ready = 0;
+        return;
+    }
+
+    outb(0x3F9, 0x00);
+    outb(0x3FB, 0x80);
+    outb(0x3F8, 0x01);
+    outb(0x3F9, 0x00);
+    outb(0x3FB, 0x03);
+    outb(0x3FA, 0xC7);
+    outb(0x3FC, 0x0B);
+    g_serial_ready = 1;
+}
+
+int serial_ready(void)
+{
+    return g_serial_ready;
+}
+
+void serial_putc(char c)
+{
+    if (!g_serial_ready)
+        return;
+    if (c == '\n')
+        serial_putc('\r');
+    for (int i = 0; i < 100000; i++) {
+        if (inb(0x3FD) & 0x20)
+            break;
+    }
+    outb(0x3F8, (uint8_t)c);
+}
+
+void serial_puts(const char *s)
+{
+    while (*s)
+        serial_putc(*s++);
+}
+
 void kbd_drain(void)
 {
     g_shift = 0;
     g_ctrl = 0;
+    g_alt = 0;
+    g_super = 0;
     for (int i = 0; i < 64 && (inb(0x64) & 0x01); i++)
         (void)inb(0x60);
 }
@@ -475,6 +583,118 @@ static void kbc_drain_output(void)
             break;
         (void)inb(0x60);
     }
+}
+
+static int g_kbd_ready;
+
+int kbd_present(void)
+{
+    return g_kbd_ready;
+}
+
+static int kbd_read_byte(uint8_t *value, uint32_t spins)
+{
+    for (uint32_t i = 0; i < spins; i++) {
+        uint8_t st = inb(0x64);
+        if (st == 0xFF)
+            return -1;
+        if (st & 0x01) {
+            uint8_t b = inb(0x60);
+            if (st & 0x20)
+                continue;
+            *value = b;
+            return 0;
+        }
+        __asm__ volatile("pause");
+    }
+    return -1;
+}
+
+static int kbd_send_byte(uint8_t value, uint8_t expect, uint32_t spins)
+{
+    for (int attempt = 0; attempt < 5; attempt++) {
+        if (kbc_wait_write() != 0)
+            return -1;
+        outb(0x60, value);
+
+        int resend = 0;
+        for (uint32_t i = 0; i < spins; i++) {
+            uint8_t b;
+            if (kbd_read_byte(&b, 1) != 0)
+                continue;
+            if (b == expect)
+                return 0;
+            if (b == 0xFE) {
+                resend = 1;
+                break;
+            }
+        }
+        if (!resend)
+            return -1;
+    }
+    return -1;
+}
+
+void kbd_init(void)
+{
+    uint8_t cfg;
+
+    if (g_kbd_ready)
+        return;
+    g_shift = 0;
+    g_ctrl = 0;
+    g_alt = 0;
+    g_super = 0;
+
+    if (inb(0x64) == 0xFF)
+        return;
+
+    kbc_drain_output();
+
+    if (kbc_wait_write() == 0)
+        outb(0x64, 0xAE);
+
+    if (kbc_wait_write() == 0)
+        outb(0x64, 0x20);
+    if (kbc_wait_read() == 0) {
+        cfg = inb(0x60);
+        cfg |= 0x40;
+        cfg &= (uint8_t)~0x10;
+        cfg &= (uint8_t)~0x03;
+        if (kbc_wait_write() == 0) {
+            outb(0x64, 0x60);
+            if (kbc_wait_write() == 0)
+                outb(0x60, cfg);
+        }
+    }
+
+    kbc_drain_output();
+
+    int reset_ok = 0;
+    for (int attempt = 0; attempt < 3 && !reset_ok; attempt++) {
+        if (kbd_send_byte(0xFF, 0xFA, 500000) == 0)
+            reset_ok = 1;
+    }
+    if (reset_ok) {
+        for (uint32_t i = 0; i < 500000; i++) {
+            uint8_t b;
+            if (kbd_read_byte(&b, 1) != 0)
+                continue;
+            if (b == 0xAA || b == 0xFC || b == 0xFD)
+                break;
+        }
+    }
+
+    kbc_drain_output();
+
+    int scanning = 0;
+    for (int attempt = 0; attempt < 5 && !scanning; attempt++) {
+        if (kbd_send_byte(0xF4, 0xFA, 500000) == 0)
+            scanning = 1;
+    }
+
+    g_kbd_ready = scanning;
+    kbc_drain_output();
 }
 
 static int aux_command(uint8_t value)
@@ -531,7 +751,7 @@ void mouse_init(void)
     if (kbc_wait_read() != 0)
         return;
     uint8_t cfg = inb(0x60);
-    cfg = (uint8_t)((cfg | 0x43) & ~0xB0);
+    cfg = (uint8_t)((cfg | 0x40) & ~0xB0);
 
     if (kbc_wait_write() != 0)
         return;
@@ -630,12 +850,32 @@ int mouse_take_release(void)
 }
 
 
+int vga_probe(void)
+{
+    uint8_t misc = inb(0x3CC);
+    outb(0x3D4, 0x00);
+    uint8_t htotal = inb(0x3D5);
+    uint8_t status = inb(0x3DA);
+
+    if (misc == 0xFF && htotal == 0xFF && status == 0xFF)
+        return 0;
+    if (htotal == 0xFF)
+        return 0;
+    return 1;
+}
+
  
 __attribute__((noreturn)) void reboot(void)
 {
     while (inb(0x64) & 0x02)
         ;
     outb(0x64, 0xFE);
+
+    for (volatile uint32_t i = 0; i < 1000000u; i++)
+        __asm__ volatile("pause");
+
+    outb(0xCF9, 0x02);
+    outb(0xCF9, 0x06);
 
     for (;;) {
         __asm__ volatile("cli; hlt");

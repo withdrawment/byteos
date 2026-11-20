@@ -43,7 +43,9 @@ One wrong letter can erase your main disk.
   <li>NASM, LLVM/Clang, Python 3, and QEMU if you build from source.</li>
   <li>A 64 MiB or larger raw disk image for the VM.</li>
   <li>A spare USB stick or disk for the finished installation.</li>
-  <li>Firmware set to legacy BIOS/CSM boot.</li>
+  <li>Firmware set to legacy BIOS/CSM boot, with legacy USB support enabled.</li>
+  <li>An IDE/PATA or AHCI SATA target disk (not RAID or NVMe), and a
+      VGA-compatible display.</li>
 </ul>
 
 <h2>1. Get the source</h2>
@@ -57,8 +59,9 @@ and skip to step 3.</p>
 <p>On Windows:</p>
 <pre><code>.\build.ps1</code></pre>
 <p>This produces <code>ByteOS.iso</code>, <code>build\boot.bin</code>,
-<code>build\kernel.bin</code>, and <code>build\mbr.bin</code>. The build
-uses the project's own ISO writer; no external ISO tool is required.</p>
+<code>build\kernel.bin</code>, <code>build\mbr.bin</code>, and the hybrid USB
+MBR in <code>build\usbmbr.bin</code>. The build uses the project's own ISO
+writer; no external ISO tool is required.</p>
 
 <h2>3. Create the target disk image</h2>
 <p>64 MiB is plenty for ByteOS and its website:</p>
@@ -73,7 +76,9 @@ QEMU installation folder.</p>
   -boot d</code></pre>
 <ul>
   <li><code>-cdrom</code> is the live ISO.</li>
-  <li><code>-drive ...,if=ide</code> makes the target disk visible to the ATA driver.</li>
+  <li><code>-drive ...,if=ide</code> makes the target disk visible to the PIO
+      driver on the default machine and to the AHCI driver with
+      <code>-machine q35</code>.</li>
   <li><code>-boot d</code> boots the CD first.</li>
 </ul>
 
@@ -122,10 +127,11 @@ offers a boot order, put the target disk first.</p>
 
 <h2>8. Alternative: install directly to the real disk</h2>
 <p>
-If the target disk is visible to your firmware as an ATA/IDE disk, you can
-boot the live ISO on the real machine and run <code>byte-install</code>
-directly, selecting that disk. This avoids the image-copy step. It is still
-destructive: check the model and size shown by the installer before confirming.
+If the target disk is visible to your firmware as an IDE/PATA or AHCI SATA
+disk, you can boot the hybrid USB ISO on the real machine and run
+<code>byte-install</code> directly, selecting that disk. This avoids the
+image-copy step. It is still destructive: check the model and size shown by
+the installer before confirming.
 </p>
 
 <h2>9. Verify the installation</h2>
@@ -155,7 +161,10 @@ installer.
 <h2>Troubleshooting</h2>
 <ul>
   <li><strong>No disks in the installer:</strong> attach the disk with
-      <code>if=ide</code>, or enable IDE/legacy storage on the machine.</li>
+      <code>if=ide</code>, or set the SATA controller to AHCI/IDE rather than
+      RAID on the machine. NVMe is not supported.</li>
+  <li><strong>No keyboard input:</strong> use a PS/2 keyboard or enable legacy
+      USB support. The kernel polls the 8042 controller; it has no USB stack.</li>
   <li><strong>QEMU boots the ISO again:</strong> use <code>-boot c</code> and
       omit <code>-cdrom</code> when booting the installed disk.</li>
   <li><strong>Login fails:</strong> usernames are case-insensitive; passwords

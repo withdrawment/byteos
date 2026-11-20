@@ -217,12 +217,32 @@ def build_iso(boot_image: bytes, readme: bytes, volume_id: str) -> bytes:
     return bytes(image)
 
 
+def apply_mbr(iso: bytes, mbr: bytes) -> bytes:
+    image = bytearray(iso)
+    if len(mbr) > 512:
+        raise ValueError("MBR image must be at most 512 bytes")
+    code = bytearray(mbr[:512].ljust(512, b"\x00"))
+    entry = bytearray(16)
+    entry[0] = 0x80
+    entry[1:4] = b"\xfe\xff\xff"
+    entry[4] = 0x83
+    entry[5:8] = b"\xfe\xff\xff"
+    entry[8:12] = le32(0)
+    entry[12:16] = le32(len(image) // 512)
+    code[446:462] = entry
+    code[462:510] = b"\x00" * 48
+    code[510:512] = b"\x55\xaa"
+    image[0:512] = code
+    return bytes(image)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("boot_image")
     parser.add_argument("output")
     parser.add_argument("--readme", default=None)
     parser.add_argument("--volume-id", default="BYTEOS")
+    parser.add_argument("--mbr", default=None)
     args = parser.parse_args()
 
     boot_image = Path(args.boot_image).read_bytes()
@@ -236,6 +256,14 @@ def main() -> None:
         readme = Path(args.readme).read_bytes()
 
     iso = build_iso(boot_image, readme, args.volume_id)
+    if args.mbr:
+        if len(iso) < 2 * 1024 * 1024:
+            iso += b"\x00" * (2 * 1024 * 1024 - len(iso))
+        image = bytearray(iso)
+        image[16 * SECTOR + 80:16 * SECTOR + 88] = both32(
+            len(image) // SECTOR
+        )
+        iso = apply_mbr(bytes(image), Path(args.mbr).read_bytes())
     Path(args.output).write_bytes(iso)
     print(
         "wrote %s (%d bytes, boot image %d bytes / %d sectors)"

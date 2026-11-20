@@ -36,8 +36,9 @@ select the disk that holds your current operating system.
 
 <h2>What you need</h2>
 <ul>
-  <li>A PC that can boot legacy BIOS or CSM mode (UEFI-only machines need CSM enabled).</li>
-  <li>An ATA/IDE disk. AHCI, NVMe, and USB storage are not supported by the installer.</li>
+  <li>A PC that can boot legacy BIOS or CSM mode (UEFI-only machines are not supported; disable Secure Boot).</li>
+  <li>An IDE/PATA or AHCI SATA disk. Set the SATA controller to AHCI or IDE, not RAID. NVMe and USB mass storage are not supported by the installer.</li>
+  <li>PS/2 or legacy-USB keyboard, and VGA-compatible display output.</li>
   <li>A USB stick for the live ISO, or a virtual machine.</li>
   <li>At least 32 MiB free on the target disk. 64 MiB or more recommended.</li>
 </ul>
@@ -52,12 +53,15 @@ project root.
 
 <h2>Step 2: Write the ISO to USB</h2>
 <ul>
-  <li><strong>Rufus</strong> (Windows): choose the ISO, select GPT or MBR as
-      required by your firmware, and write in DD mode if offered.</li>
+  <li><strong>Rufus</strong> (Windows): choose the ISO, select MBR, and write in DD mode when offered.</li>
   <li><strong>balenaEtcher</strong>: select the ISO and the USB stick, then Flash.</li>
   <li><strong>Linux/macOS</strong>: <code>sudo dd if=ByteOS.iso of=/dev/sdX bs=4M status=progress</code>
       where <code>/dev/sdX</code> is the whole USB disk, not a partition.</li>
 </ul>
+<p>
+The ISO is hybrid: it boots from CD/DVD through El Torito and from USB through
+an embedded MBR. Enable legacy USB support and USB-HDD boot in the firmware.
+</p>
 
 <h2>Step 3: Boot the live environment</h2>
 <p>
@@ -75,7 +79,7 @@ donut</code></pre>
 <pre><code>byte-install</code></pre>
 <p>The installer asks for:</p>
 <ol>
-  <li><strong>Installation disk</strong> - pick the number of the spare ATA disk. Check the model and size.</li>
+  <li><strong>Installation disk</strong> - pick the number of the spare ATA or SATA disk. Check the model and size.</li>
   <li><strong>Username</strong> - 1 to 31 characters; letters, digits, dot, dash, underscore.</li>
   <li><strong>User password</strong> - typed twice, hidden with asterisks.</li>
   <li><strong>Root password</strong> - typed twice, hidden with asterisks.</li>
@@ -112,12 +116,22 @@ the installed disk:</p>
 
 <h2>Troubleshooting</h2>
 <ul>
-  <li><strong>The installer lists no disks.</strong> The disk must be visible
-      as a legacy ATA/IDE device. In QEMU use <code>-drive ...,if=ide</code>.
-      On real hardware, enable IDE/legacy storage mode if the firmware offers it.</li>
+  <li><strong>The installer lists no disks.</strong> Set the SATA controller to
+      AHCI or IDE/legacy mode, not RAID. In QEMU use <code>-drive ...,if=ide</code>;
+      with <code>-machine q35</code> the same option exercises AHCI. NVMe drives
+      are not supported.</li>
+  <li><strong>The keyboard does not respond.</strong> Use a PS/2 keyboard or
+      enable legacy USB support in the firmware. ByteOS polls the 8042
+      controller rather than using USB drivers.</li>
   <li><strong>The machine will not boot after install.</strong> Check that the
       firmware is in BIOS/CSM mode and that the target disk is first in the
       boot order. ByteOS does not support UEFI boot yet.</li>
+  <li><strong>Graphics desktops fail.</strong> ByteWin 95 and ByteTile need a
+      VGA-compatible mode 12h display. The text console and ByteDesktop still
+      work without one.</li>
+  <li><strong>Debugging a real machine.</strong> Connect COM1 at 115200 8N1;
+      the bootloader and kernel log A20, long mode, VGA, keyboard, AHCI and
+      disk detection there.</li>
   <li><strong>The installer refuses the disk.</strong> You selected the disk
       ByteOS is currently running from. Boot the ISO and install to a different disk.</li>
   <li><strong>The browser shows a URL instead of a page.</strong> This is

@@ -51,7 +51,7 @@ try {
         'kernel/core.c', 'kernel/platform.c', 'kernel/ui.c', 'kernel/donut.c',
         'kernel/ata.c', 'kernel/bfs.c', 'kernel/auth.c', 'kernel/install.c',
         'kernel/fetch.c', 'kernel/fetch_art.c', 'kernel/desktop.c', 'kernel/browser.c',
-        'kernel/editor.c', 'kernel/win95.c',
+        'kernel/editor.c', 'kernel/win95.c', 'kernel/tilewm.c',
         'build/site_data.c', 'build/mbr_blob.c'
     )
     $objects = @()
@@ -75,7 +75,13 @@ try {
     & $nasm -f bin -D KERNEL_SECTORS=$kernelSectors boot/boot.asm -o build/boot.bin
     if ($LASTEXITCODE -ne 0) { throw "NASM failed" }
 
-    $isoArgs = @('tools/mkiso.py', 'build/boot.bin', 'ByteOS.iso', '--volume-id', 'BYTEOS')
+    $bootSectors = [int][math]::Ceiling((Get-Item build/boot.bin).Length / 512.0)
+    Write-Host "  ASM  boot/usbmbr.asm ($bootSectors boot image sectors)"
+    & $nasm -f bin -D BOOT_IMAGE_SECTORS=$bootSectors boot/usbmbr.asm -o build/usbmbr.bin
+    if ($LASTEXITCODE -ne 0) { throw "NASM failed on boot/usbmbr.asm" }
+
+    $isoArgs = @('tools/mkiso.py', 'build/boot.bin', 'ByteOS.iso', '--volume-id', 'BYTEOS',
+                 '--mbr', 'build/usbmbr.bin')
     if (Test-Path 'README.md') {
         $isoArgs += @('--readme', 'README.md')
     }

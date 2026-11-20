@@ -370,25 +370,6 @@ static uint32_t entry_blocks(const bfs_file_t *f)
     return blocks ? blocks : 1;
 }
 
-static void reclaim_tail(void)
-{
-    int again = 1;
-    while (again) {
-        again = 0;
-        for (int i = 0; i < BFS_MAX_FILES; i++) {
-            bfs_file_t *f = &g_super.files[i];
-            if (!(f->flags & BFS_FILE_USED) || (f->flags & BFS_FILE_DIR))
-                continue;
-            if (f->start_lba + entry_blocks(f) == g_super.next_lba) {
-                g_super.next_lba = f->start_lba;
-                memset(f, 0, sizeof(*f));
-                again = 1;
-                break;
-            }
-        }
-    }
-}
-
 int bfs_mkdir(const char *path)
 {
     if (!g_mounted || !path)
@@ -436,10 +417,12 @@ int bfs_unlink(const char *path)
     int idx = bfs_lookup(path);
     if (idx < 0)
         return -1;
-    if (g_super.files[idx].flags & BFS_FILE_DIR)
+    bfs_file_t *f = &g_super.files[idx];
+    if (f->flags & BFS_FILE_DIR)
         return -2;
-    memset(&g_super.files[idx], 0, sizeof(g_super.files[idx]));
-    reclaim_tail();
+    if (f->start_lba + entry_blocks(f) == g_super.next_lba)
+        g_super.next_lba = f->start_lba;
+    memset(f, 0, sizeof(*f));
     return write_super() == 0 ? 0 : -1;
 }
 

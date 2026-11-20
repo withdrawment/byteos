@@ -282,6 +282,8 @@ static int vga_enter_graphics(void)
 {
     if (g_gfx_active)
         return 0;
+    if (!vga_probe())
+        return -1;
 
     save_vga();
 

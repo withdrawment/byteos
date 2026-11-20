@@ -1,0 +1,22 @@
+ByteOS boot
+a20 ok
+e820 ok
+long mode ok
+
+ByteOS 0.2 boot
+vga: ok
+kbd: ok
+cpu: QEMU Virtual CPU version 2.5+
+memory: e820 ok
+pio: slot 0x0000000000000000
+pio: id0 0x0000000000000040
+pio: id1 0x0000000000000002
+pio: id49 0x0000000000000b00
+pio: slot 0x0000000000000001
+pio: slot 0x0000000000000002
+pio: slot 0x0000000000000003
+disk pio: QEMU HARDDISK (slot 0)
+  CPU  : QEMU Virtual CPU version 2.5+
+  MEM  : 511 MiB usable  |  CPUs: 1  |  TSC: ~2398 MHz
+  SYS  : x86_64 long mode  |  VGA 80x25  |  BIOS El Torito  |  VM
+live@byteos:/$ 

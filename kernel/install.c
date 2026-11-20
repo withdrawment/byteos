@@ -200,14 +200,18 @@ void install_wizard(void)
     if (!disk)
         INSTALL_FAIL("disk disappeared");
 
-    if ((g_boot->boot_flags & BOOT_FLAG_DISK) &&
-        ata_bios_slot((int)g_boot->boot_drive) == slot) {
-        console_set_attr(C_WARN);
-        kprintf("\nRefusing to install onto the disk ByteOS is running from.\n");
-        console_set_attr(C_DIM);
-        kprintf("Boot the ISO and select a different disk.\n");
-        console_set_attr(VGA_ATTR(LIGHT_GRAY, BLACK));
-        return;
+    if (g_boot->boot_flags & BOOT_FLAG_DISK) {
+        int boot_slot = ata_bios_slot((int)g_boot->boot_drive);
+        if (bfs_mounted())
+            boot_slot = bfs_slot();
+        if (boot_slot == slot) {
+            console_set_attr(C_WARN);
+            kprintf("\nRefusing to install onto the disk ByteOS is running from.\n");
+            console_set_attr(C_DIM);
+            kprintf("Boot the ISO and select a different disk.\n");
+            console_set_attr(VGA_ATTR(LIGHT_GRAY, BLACK));
+            return;
+        }
     }
 
     if (disk->sectors < BFS_PART_LBA + 128u) {

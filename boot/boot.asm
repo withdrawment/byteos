@@ -47,6 +47,10 @@ stage2:
     mov ds, ax
     mov es, ax
 
+    call serial_init
+    mov si, boot_msg
+    call serial_msg
+
     mov [BOOT_DRIVE_SAVE], dl
     xor eax, eax
     mov al, [BOOT_DRIVE_SAVE]
@@ -55,6 +59,17 @@ stage2:
     mov dword [BOOT_INFO_ADDR + BOOT_FLAGS_OFS], 0
 
     call enable_a20
+    call a20_test
+    jnc .a20_ok
+    mov ax, 0x2401
+    int 0x15
+    call a20_test
+    jnc .a20_ok
+    mov si, a20_fail_msg
+    jmp boot_error
+.a20_ok:
+    mov si, a20_msg
+    call serial_msg
 
     mov eax, [DISK_FLAG_ADDR]
     cmp eax, DISK_FLAG_VALUE
@@ -65,7 +80,10 @@ stage2:
     mov dword [DISK_FLAG_ADDR], 0
 
     call do_e820
+    mov si, e820_msg
+    call serial_msg
 
+    call check_long_mode
 
     mov ax, 0x0003
     int 0x10
@@ -121,9 +139,137 @@ enable_a20:
     ret
 
 a20_wait:
+    mov cx, 0xFFFF
+.loop:
     in al, 0x64
     test al, 0x02
-    jnz a20_wait
+    jz .done
+    loop .loop
+.done:
+    ret
+
+a20_test:
+    pusha
+    push ds
+    push es
+    xor ax, ax
+    mov ds, ax
+    mov ax, 0xFFFF
+    mov es, ax
+    mov si, 0x0500
+    mov di, 0x0510
+    mov al, [ds:si]
+    mov ah, [es:di]
+    push ax
+    mov byte [ds:si], 0x00
+    mov byte [es:di], 0xFF
+    mov al, [ds:si]
+    pop dx
+    mov [es:di], dh
+    mov [ds:si], dl
+    cmp al, 0x00
+    pop es
+    pop ds
+    popa
+    je .enabled
+    stc
+    ret
+.enabled:
+    clc
+    ret
+
+check_long_mode:
+    pushfd
+    pop eax
+    mov ecx, eax
+    xor eax, 1 << 21
+    push eax
+    popfd
+    pushfd
+    pop eax
+    push ecx
+    popfd
+    xor eax, ecx
+    jz .no_cpuid
+
+    mov eax, 0x80000000
+    cpuid
+    cmp eax, 0x80000001
+    jb .no_long
+    mov eax, 0x80000001
+    cpuid
+    test edx, 1 << 29
+    jz .no_long
+
+    mov si, long_msg
+    call serial_msg
+    ret
+
+.no_cpuid:
+    mov si, no_cpuid_msg
+    jmp boot_error
+.no_long:
+    mov si, no_long_msg
+    jmp boot_error
+
+serial_init:
+    push ax
+    push dx
+    mov dx, 0x3FB
+    mov al, 0x80
+    out dx, al
+    mov dx, 0x3F8
+    mov al, 0x01
+    out dx, al
+    mov dx, 0x3F9
+    xor al, al
+    out dx, al
+    mov dx, 0x3FB
+    mov al, 0x03
+    out dx, al
+    mov dx, 0x3FA
+    mov al, 0xC7
+    out dx, al
+    mov dx, 0x3FC
+    mov al, 0x0B
+    out dx, al
+    pop dx
+    pop ax
+    ret
+
+serial_char:
+    push ax
+    push cx
+    push dx
+    mov ah, al
+    mov cx, 0xFFFF
+.wait:
+    mov dx, 0x3FD
+    in al, dx
+    test al, 0x20
+    jnz .ready
+    loop .wait
+.ready:
+    mov al, ah
+    mov dx, 0x3F8
+    out dx, al
+    pop dx
+    pop cx
+    pop ax
+    ret
+
+serial_msg:
+    push ax
+    push si
+.loop:
+    lodsb
+    test al, al
+    jz .done
+    call serial_char
+    jmp .loop
+.done:
+    pop si
+    pop ax
     ret
 
 
@@ -195,10 +341,14 @@ load_kernel_disk:
     jmp .loop
 
 .done:
+    mov si, kernel_msg
+    call serial_msg
     ret
 
 disk_error:
     mov si, disk_error_msg
+boot_error:
+    call serial_msg
 .print:
     lodsb
     test al, al
@@ -229,6 +379,22 @@ kernel_remaining:
 
 disk_error_msg:
     db "ByteOS: disk kernel load failed", 13, 10, 0
+boot_msg:
+    db "ByteOS boot", 13, 10, 0
+a20_msg:
+    db "a20 ok", 13, 10, 0
+a20_fail_msg:
+    db "ByteOS: A20 gate failed", 13, 10, 0
+e820_msg:
+    db "e820 ok", 13, 10, 0
+long_msg:
+    db "long mode ok", 13, 10, 0
+kernel_msg:
+    db "kernel loaded", 13, 10, 0
+no_cpuid_msg:
+    db "ByteOS: CPUID unavailable", 13, 10, 0
+no_long_msg:
+    db "ByteOS: CPU lacks long mode", 13, 10, 0
 
 
 build_page_tables:

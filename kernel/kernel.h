@@ -129,6 +129,13 @@ int kbd_getchar(void);
 int kbd_getkey(void);
 int kbd_waitkey(void);
 void kbd_drain(void);
+
+#define KBD_MOD_SHIFT 1
+#define KBD_MOD_CTRL  2
+#define KBD_MOD_ALT   4
+#define KBD_MOD_SUPER 8
+
+int kbd_mods(void);
 void reboot(void);
 
 #define KEY_UP    0x100
@@ -165,13 +172,19 @@ void shell(void);
 void donut_mode(void);
 
  
-#define ATA_MAX_DISKS 4
+#define ATA_MAX_DISKS 8
+
+#define ATA_KIND_PIO  0
+#define ATA_KIND_AHCI 1
 
 typedef struct {
     int present;
+    int kind;
     uint16_t iobase;
     uint16_t ctrl;
     int slave;
+    int port;
+    volatile uint32_t *abar;
     uint32_t sectors;
     char model[41];
 } ata_disk_t;
@@ -198,6 +211,8 @@ void app_footer(const char *text);
 
  
 int win95_desktop(void);
+int tilewm_desktop(void);
+void tile_config_info(void);
 
  
 void mouse_init(void);
@@ -206,6 +221,15 @@ void mouse_flush(void);
 void mouse_get_state(int *x, int *y, int *buttons);
 int mouse_take_click(void);
 int mouse_take_release(void);
+void kbd_init(void);
+int kbd_present(void);
+
+void serial_init(void);
+int serial_ready(void);
+void serial_putc(char c);
+void serial_puts(const char *s);
+
+int vga_probe(void);
 
  
 void browser_app(const char *path);

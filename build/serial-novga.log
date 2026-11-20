@@ -1,0 +1,16 @@
+ByteOS boot
+a20 ok
+e820 ok
+long mode ok
+
+ByteOS 0.2 boot
+vga: absent
+kbd: ok
+cpu: QEMU Virtual CPU version 2.5+
+memory: e820 ok
+  CPU  : QEMU Virtual CPU version 2.5+
+  MEM  : 511 MiB usable  |  CPUs: 1  |  TSC: ~2406 MHz
+  SYS  : x86_64 long mode  |  VGA 80x25  |  BIOS El Torito  |  VM
+live@byteos:/$ start-desktop win95
+
+ByteWin 95 could not start; using ByteDesktop instead.

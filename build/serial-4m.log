@@ -1,0 +1,42 @@
+ByteOS boot
+a20 ok
+e820 ok
+long mode ok
+
+ByteOS 0.2 boot
+vga: ok
+kbd: ok
+cpu: QEMU Virtual CPU version 2.5+
+memory: e820 ok
+pio: slot 0x0000000000000000
+pio: slot 0x0000000000000001
+pio: slot 0x0000000000000002
+pio: slot 0x0000000000000003
+ahci: pci match
+ahci: class 0x0000000001060102
+ahci: controller
+ahci: bar 0x00000000febf1000
+ahci: cap 0x00000000c0141f05
+ahci: pi 0x000000000000003f
+ahci: port 0x0000000000000000
+ahci: ssts 0x0000000000000113
+ahci: sig 0x0000000000000101
+ahci: start 0x0000000000000000
+ahci: identify 0x0000000000000000
+ahci: id49 0x0000000000000b00
+ahci: port 0x0000000000000001
+ahci: ssts 0x0000000000000000
+ahci: port 0x0000000000000002
+ahci: ssts 0x0000000000000113
+ahci: sig 0x00000000eb140101
+ahci: port 0x0000000000000003
+ahci: ssts 0x0000000000000000
+ahci: port 0x0000000000000004
+ahci: ssts 0x0000000000000000
+ahci: port 0x0000000000000005
+ahci: ssts 0x0000000000000000
+disk ahci: QEMU HARDDISK (slot 4)
+  CPU  : QEMU Virtual CPU version 2.5+
+  MEM  : 511 MiB usable  |  CPUs: 1  |  TSC: ~2409 MHz
+  SYS  : x86_64 long mode  |  VGA 80x25  |  BIOS El Torito  |  VM
+live@byteos:/$ 

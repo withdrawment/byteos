@@ -1,0 +1,48 @@
+ByteOS boot
+a20 ok
+e820 ok
+long mode ok
+
+ByteOS 0.2 boot
+vga: ok
+kbd: ok
+cpu: QEMU Virtual CPU version 2.5+
+memory: e820 ok
+  CPU  : QEMU Virtual CPU version 2.5+
+  MEM  : 1023 MiB usable  |  CPUs: 4  |  TSC: ~2405 MHz
+  SYS  : x86_64 long mode  |  VGA 80x25  |  BIOS El Torito  |  VM
+live@byteos:/$ start-desktop
+  CPU  : QEMU Virtual CPU version 2.5+
+  MEM  : 1023 MiB usable  |  CPUs: 4  |  TSC: ~2405 MHz
+  SYS  : x86_64 long mode  |  VGA 80x25  |  BIOS El Torito  |  VM
+live@byteos:/$ tileconf
+ByteTile config: /bytetile.conf
+Edit inside ByteTile with Alt+Shift+C, save with Ctrl+S.
+
+--- default ---
+# ByteTile configuration
+# Alt+Shift+C opens this file inside ByteTile.
+# Ctrl+S saves and applies. Ctrl+R reloads.
+#
+# gaps         outer and inner window gaps, pixels
+# border       window border thickness, pixels
+# master       master area width, percent
+# layout       tile | monocle | grid
+# bar          top bar height, pixels
+# accent       selected tag color, 0-15
+# bar_fg       bar text color, 0-15
+# bar_bg       bar background color, 0-15
+# border_active focused window border color, 0-15
+# border_normal other window border color, 0-15
+gaps=5
+border=2
+master=55
+layout=tile
+bar=18
+accent=14
+bar_fg=15
+bar_bg=1
+border_active=11
+border_normal=8
+
+live@byteos:/$ 

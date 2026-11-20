@@ -36,8 +36,9 @@
 <tr><td><code>memmap</code></td><td>Raw BIOS E820 memory map.</td></tr>
 <tr><td><code>about</code></td><td>Project background.</td></tr>
 <tr><td><code>donut</code></td><td>Spinning z-buffered ASCII donut. Any key returns.</td></tr>
-<tr><td><code>start-desktop</code></td><td>Choose ByteDesktop or ByteWin 95. Add <code>classic</code> or <code>win95</code> to skip the chooser.</td></tr>
-<tr><td><code>byte-install</code></td><td>Guided installer for an ATA/IDE disk.</td></tr>
+<tr><td><code>start-desktop</code></td><td>Choose ByteDesktop, ByteWin 95 or ByteTile. Add <code>classic</code>, <code>win95</code> or <code>tile</code> to skip the chooser.</td></tr>
+<tr><td><code>byte-install</code></td><td>Guided installer for an ATA, IDE or AHCI SATA disk.</td></tr>
+<tr><td><code>tileconf</code></td><td>Print <code>/bytetile.conf</code> or the ByteTile defaults.</td></tr>
 <tr><td><code>ls</code> / <code>dir</code></td><td>List files and directories, optionally for one path.</td></tr>
 <tr><td><code>pwd</code></td><td>Print the current directory.</td></tr>
 <tr><td><code>cd</code></td><td>Change directory; no argument goes to <code>/home</code>.</td></tr>
@@ -46,7 +47,7 @@
 <tr><td><code>touch</code></td><td>Create an empty file.</td></tr>
 <tr><td><code>rm</code></td><td>Delete a file.</td></tr>
 <tr><td><code>cat FILE</code></td><td>Print a text file from ByteFS.</td></tr>
-<tr><td><code>lsblk</code></td><td>List ATA disks and the mounted ByteFS partition.</td></tr>
+<tr><td><code>lsblk</code></td><td>List PIO and AHCI disks and the mounted ByteFS partition.</td></tr>
 <tr><td><code>df</code></td><td>Show ByteFS space usage.</td></tr>
 <tr><td><code>free</code></td><td>Show memory usage.</td></tr>
 <tr><td><code>uname</code></td><td>System name and release; accepts <code>-a</code>, <code>-r</code>, <code>-m</code>, <code>-n</code>, <code>-s</code>.</td></tr>
@@ -69,8 +70,9 @@ directories.</p>
 
 <h2>Desktops</h2>
 <p>Run <code>start-desktop</code> from the console and pick a desktop. The
-chooser runs every time; <code>start-desktop classic</code> and
-<code>start-desktop win95</code> start one directly.</p>
+chooser runs every time; <code>start-desktop classic</code>,
+<code>start-desktop win95</code> and <code>start-desktop tile</code> start one
+directly.</p>
 
 <h3>ByteDesktop</h3>
 <p>The classic 80x25 text-mode desktop. Use the arrow keys to pick an app and
@@ -103,6 +105,36 @@ smooth.</p>
 cycles visible windows, and Enter launches the selected icon or menu item.
 F12 and Shut Down return to the shell; Restart reboots the machine.</p>
 
+<h3>ByteTile</h3>
+<p>A keyboard-only, dwm-style tiling window manager in the same 640x480 VGA
+mode 12h, with nine tags. Windows are arranged automatically and never float.
+ByteTile starts with one terminal and shows a key reference whenever the
+current tag has no windows.</p>
+<ul>
+  <li><strong>Tags</strong> - Alt+1..Alt+9 view a tag; Alt+Shift+1..Alt+Shift+9 move the focused window to a tag.</li>
+  <li><strong>Layouts</strong> - Alt+Space cycles tile, monocle and grid. Alt+h and Alt+l resize the master area; Alt+f toggles zoom.</li>
+  <li><strong>Focus</strong> - Alt+j and Alt+k cycle windows; Alt+Shift+j and Alt+Shift+k move a window in the stack.</li>
+  <li><strong>Windows</strong> - Super+Return opens a terminal, Super+Space opens the launcher, and Super+Q closes the focused window. Super is the Windows or Command key; Alt+Return, Alt+p and Alt+q are aliases.</li>
+  <li><strong>Clients</strong> - Terminal, Browser, Files, System monitor, Viewer, Config editor and Key reference. Files opens HTML pages in the browser, and the terminal supports the shell command set: <code>ls</code>/<code>dir</code>, <code>cd</code>, <code>pwd</code>, <code>cat</code>/<code>type</code>, <code>mkdir</code>, <code>rmdir</code>, <code>touch</code>, <code>rm</code>, <code>cp</code>, <code>mv</code>, <code>head</code>, <code>tail</code>, <code>wc</code>, <code>grep</code>, <code>less</code>/<code>more</code>, <code>date</code>, <code>time</code>, <code>uptime</code>, <code>whoami</code>, <code>id</code>, <code>hostname</code>, <code>uname</code>, <code>free</code>, <code>df</code>, <code>lsblk</code>, <code>env</code>, <code>ps</code>, <code>top</code>, <code>open</code>, <code>browse</code>, <code>edit</code>, <code>keys</code>, <code>tags</code>, <code>history</code>, <code>echo</code>, <code>fetch</code>, <code>specs</code>, <code>memmap</code>, <code>about</code>, <code>version</code>, <code>tileconf</code>, <code>reboot</code>, <code>clear</code>/<code>cls</code>, <code>help</code>/<code>man</code> and <code>exit</code>.</li>
+  <li><strong>Browser</strong> - a native graphics client for the bundled site and ByteFS pages. Press <code>1</code>-<code>9</code> to follow a link, <code>b</code> or Backspace to go back, <code>r</code> to reload, <code>u</code> to type an address, <code>h</code> for the home page, and the arrow, PgUp/PgDn, Home and End keys to scroll. <code>Esc</code> closes it.</li>
+  <li><strong>Config</strong> - Alt+Shift+C opens <code>/bytetile.conf</code>; Ctrl+S saves and applies, Ctrl+R reloads. On a live ISO changes live in RAM; an installed system writes them to ByteFS and restores them after a reboot. <code>tileconf</code> prints the file from the shell.</li>
+</ul>
+<table>
+<tr><th>Key</th><th>Default</th><th>Meaning</th></tr>
+<tr><td><code>gaps</code></td><td>5</td><td>Outer and inner window gap, pixels</td></tr>
+<tr><td><code>border</code></td><td>2</td><td>Window border thickness</td></tr>
+<tr><td><code>master</code></td><td>55</td><td>Master area width, percent</td></tr>
+<tr><td><code>layout</code></td><td>tile</td><td><code>tile</code>, <code>monocle</code> or <code>grid</code></td></tr>
+<tr><td><code>bar</code></td><td>18</td><td>Top bar height</td></tr>
+<tr><td><code>accent</code></td><td>14</td><td>Selected tag and highlight colour, 0-15</td></tr>
+<tr><td><code>bar_fg</code></td><td>15</td><td>Bar text colour</td></tr>
+<tr><td><code>bar_bg</code></td><td>1</td><td>Bar background colour</td></tr>
+<tr><td><code>border_active</code></td><td>11</td><td>Focused window border colour</td></tr>
+<tr><td><code>border_normal</code></td><td>8</td><td>Other window border colour</td></tr>
+</table>
+<p>Colours accept 0-15 or names such as <code>cyan</code>, <code>yellow</code>,
+<code>navy</code> and <code>gray</code>. F12 or Alt+Shift+E leaves ByteTile.</p>
+
 <h2>Disk layout</h2>
 <pre><code>LBA 0          MBR (ByteOS stage 1)
 LBA 1..65      stage 2 + page-table setup
@@ -121,22 +153,30 @@ security.</p>
 
 <h2>Boot path</h2>
 <ol>
-  <li>The ISO's El Torito catalog loads the full boot image at 0x7C00.</li>
-  <li>On a hard disk, the ByteOS MBR loads stage 2 from LBA 1, then stage 2
-      reads the kernel from LBA 66.</li>
-  <li>Stage 2 enables A20, gathers the E820 map, sets VGA text mode, builds
-      identity-mapped 2 MiB pages, and enters long mode.</li>
-  <li>The kernel clears BSS, detects the CPU, calibrates the TSC, probes ATA,
-      mounts ByteFS when booted from disk, shows the login screen, and starts
-      the shell.</li>
+  <li>The ISO's El Torito catalog loads the full boot image at 0x7C00. The
+      hybrid USB MBR loads the same image from the ISO layout when the stick is
+      booted as a hard disk.</li>
+  <li>On an installed disk, the ByteOS MBR loads stage 2 from LBA 1, then
+      stage 2 reads the kernel from LBA 66.</li>
+  <li>Stage 2 initialises COM1 diagnostics, checks CPUID and long mode, enables
+      and tests A20 with a BIOS fallback, gathers the E820 map, sets VGA text
+      mode, builds identity-mapped 2 MiB pages, and enters long mode.</li>
+  <li>The kernel clears BSS, probes VGA and the keyboard, detects the CPU,
+      calibrates the TSC (PIT with a CPUID 0x15/0x16 fallback), probes PIO and
+      AHCI disks, mounts ByteFS when booted from disk, shows the login screen,
+      and starts the shell.</li>
 </ol>
 
 <h2>Limitations</h2>
 <ul>
-  <li>Legacy BIOS / CSM only. Native UEFI is not implemented.</li>
-  <li>ATA PIO (IDE) disks only. AHCI, NVMe, and USB storage are not supported.</li>
+  <li>Legacy BIOS / CSM only. Native UEFI and Secure Boot are not implemented.</li>
+  <li>ATA PIO and AHCI SATA disks are supported. NVMe, RAID-mode SATA, and USB
+      mass storage are not driven by the kernel; USB sticks work as
+      firmware-emulated boot media.</li>
+  <li>VGA-compatible output only: text mode 80x25 and mode 12h at 640x480 with
+      16 colours. There is no VBE framebuffer.</li>
   <li>No networking. The browser reads local files; external links show their URL.</li>
-  <li>One task, ring 0 only. ByteWin 95 is a single-threaded 640x480 GUI, and the classic desktop is 80x25 text mode.</li>
+  <li>One task, ring 0 only. ByteWin 95 and ByteTile are single-threaded 640x480 GUIs, and the classic desktop is 80x25 text mode.</li>
   <li>Installation erases the selected disk. Use a spare disk or QEMU image.</li>
 </ul>
 

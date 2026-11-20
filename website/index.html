@@ -28,8 +28,8 @@
 <p class="lead">
 ByteOS boots from its own hand-built El Torito ISO and MBR, enters long mode
 with no GRUB and no libc, and gives you a console, a classic text desktop, a
-640x480 graphical desktop with a mouse, a local web browser, a file explorer,
-a text editor, and an installer.
+640x480 graphical desktop with a mouse, a keyboard-driven tiling window
+manager, a local web browser, a file explorer, a text editor, and an installer.
 </p>
 
 <p class="buttons">
@@ -46,12 +46,13 @@ a text editor, and an installer.
     memory, uptime, boot mode, disk, and account details.</p>
   </section>
   <section>
-    <h3>Two desktops</h3>
+    <h3>Three desktops</h3>
     <p>Enter <code>start-desktop</code> and choose the classic text-mode
-    ByteDesktop or ByteWin 95, a genuine 640x480 VGA GUI with a mouse, icons,
-    draggable windows with minimize/maximize controls, a native Fetch window,
-    command history, a starfield screensaver, a Start menu, and a graphical
-    command prompt.</p>
+    ByteDesktop, ByteWin 95 (a genuine 640x480 VGA GUI with a mouse, icons,
+    draggable windows, a native Fetch window, command history, a starfield
+    screensaver and a Start menu), or ByteTile, a dwm-style tiling window
+    manager with nine tags, three layouts, Super shortcuts, a built-in HTML
+    browser, a full terminal, and an editable <code>/bytetile.conf</code>.</p>
   </section>
   <section>
     <h3>Linux-style shell</h3>
@@ -67,8 +68,9 @@ a text editor, and an installer.
   </section>
   <section>
     <h3>byte-install</h3>
-    <p>An archinstall-style guided installer. Pick an ATA disk, create a
-    user, set the user and root passwords, and write a bootable system.</p>
+    <p>An archinstall-style guided installer. Pick an IDE or AHCI SATA disk,
+    create a user, set the user and root passwords, and write a bootable
+    system.</p>
   </section>
   <section>
     <h3>Editors and files</h3>
@@ -90,8 +92,8 @@ qemu-system-x86_64 -m 1024 -smp 4 \
   -boot d</code></pre>
 <p>
 Then run <code>fetch</code>, <code>donut</code>, or <code>start-desktop</code>
-to pick ByteDesktop or ByteWin 95. To install, run <code>byte-install</code>
-and choose the 64 MiB disk.
+to pick ByteDesktop, ByteWin 95 or ByteTile. To install, run
+<code>byte-install</code> and choose the 64 MiB disk.
 </p>
 
 <h2>Project links</h2>

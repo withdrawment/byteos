@@ -31,11 +31,22 @@ start:
     cmp bx, 0xAA55
     jne fail
 
-    mov word [dap_count], STAGE2_SECTORS
+    mov word [dap_count], 32
     mov word [dap_off], STAGE2_ADDR
     mov word [dap_seg], 0
     mov dword [dap_lba], 1
     mov dword [dap_lba + 4], 0
+    mov word [remaining], STAGE2_SECTORS
+
+.loop:
+    mov ax, [remaining]
+    test ax, ax
+    jz .boot
+    cmp ax, 32
+    jbe .have_count
+    mov ax, 32
+.have_count:
+    mov [dap_count], ax
 
     mov si, dap
     mov ah, 0x42
@@ -43,6 +54,14 @@ start:
     int 0x13
     jc fail
 
+    movzx eax, word [dap_count]
+    sub [remaining], ax
+    add dword [dap_lba], eax
+    shl eax, 5
+    add [dap_seg], ax
+    jmp .loop
+
+.boot:
     mov dl, [drive]
     jmp 0x0000:STAGE2_ADDR
 
@@ -72,6 +91,9 @@ dap_seg:
     dw 0
 dap_lba:
     dq 1
+
+remaining:
+    dw STAGE2_SECTORS
 
 drive:
     db 0

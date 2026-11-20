@@ -236,6 +236,8 @@ void console_putc(char c)
 {
     uint16_t cell = (uint16_t)(((uint16_t)g_attr << 8) | (unsigned char)c);
 
+    serial_putc(c);
+
     if (c == '\n') {
         g_col = 0;
         g_row++;
@@ -452,7 +454,13 @@ extern uint8_t __bss_end[];
 
 static void kmain(uint64_t boot_info_addr)
 {
+    serial_init();
+    serial_puts("\nByteOS 0.2 boot\n");
     console_init(VGA_ATTR(LIGHT_GRAY, BLACK));
+
+    kbd_init();
+    serial_puts(vga_probe() ? "vga: ok\n" : "vga: absent\n");
+    serial_puts(kbd_present() ? "kbd: ok\n" : "kbd: absent\n");
 
     g_boot = (boot_info_t *)(uintptr_t)boot_info_addr;
     g_boot_ok = g_boot->magic == BOOT_MAGIC && g_boot->e820_count <= 128;
@@ -462,13 +470,54 @@ static void kmain(uint64_t boot_info_addr)
     g_tsc_hz = calibrate_tsc();
     g_boot_tsc = read_tsc();
 
+    serial_puts("cpu: ");
+    serial_puts(g_cpu_brand);
+    serial_putc('\n');
+    serial_puts("memory: ");
+    serial_puts(g_boot_ok ? "e820 ok" : "missing");
+    serial_putc('\n');
+
     ata_init();
+
+    for (int i = 0; i < ATA_MAX_DISKS; i++) {
+        ata_disk_t *d = ata_slot(i);
+        if (!d)
+            continue;
+        serial_puts(d->kind == ATA_KIND_AHCI ? "disk ahci: " : "disk pio: ");
+        serial_puts(d->model);
+        serial_puts(" (slot ");
+        if (i >= 10)
+            serial_putc((char)('0' + i / 10));
+        serial_putc((char)('0' + i % 10));
+        serial_puts(")\n");
+    }
 
     if (g_boot_ok && (g_boot->boot_flags & BOOT_FLAG_DISK)) {
         int slot = ata_bios_slot((int)g_boot->boot_drive);
+        int mounted = 0;
+
         if (slot >= 0 && bfs_mount(slot, BFS_PART_LBA) == 0 &&
             auth_load() == 0) {
+            mounted = 1;
+        } else {
+            for (int i = 0; i < ATA_MAX_DISKS; i++) {
+                if (i == slot || !ata_slot(i))
+                    continue;
+                if (bfs_mount(i, BFS_PART_LBA) == 0 && auth_load() == 0) {
+                    slot = i;
+                    mounted = 1;
+                    break;
+                }
+            }
+        }
+
+        if (mounted) {
+            serial_puts("root: slot ");
+            serial_putc((char)('0' + slot % 10));
+            serial_putc('\n');
             auth_login();
+        } else {
+            serial_puts("root: not mounted\n");
         }
     }
 

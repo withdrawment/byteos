@@ -1,12 +1,12 @@
 # ByteOS 0.2 "Sprinkles"
 
 ByteOS is a tiny 64-bit bare-metal operating system that you can read end to
-end. It boots from its own hand-built El Torito ISO or from its own MBR,
+end. It boots from its own hand-built hybrid El Torito ISO or from its own MBR,
 enters long mode without GRUB and without a libc, and gives you a VGA text
 console, a persistent ByteFS disk, accounts and login, a guided disk
-installer, a fastfetch-style system summary, and two desktops: the classic
-text-mode ByteDesktop and a 640x480 graphical ByteWin 95 with a mouse,
-windows, icons, and a small command prompt.
+installer, a fastfetch-style system summary, and three desktops: the classic
+text-mode ByteDesktop, the 640x480 graphical ByteWin 95 with a mouse, and
+ByteTile, a keyboard-driven tiling window manager with a live config file.
 
 Source and releases: **https://github.com/withdrawment/byteos**
 
@@ -14,7 +14,11 @@ Source and releases: **https://github.com/withdrawment/byteos**
 
 ## What is new in 0.2
 
-- **ByteFS** - a small flat filesystem on an ATA PIO disk: 32 directory
+- **Real-hardware boot** - the ISO is hybrid (El Torito CD plus USB-HDD MBR),
+  the BIOS loader checks CPUID and long mode, tests A20 with a BIOS fallback,
+  and logs diagnostics to COM1. The kernel initialises the 8042 keyboard,
+  probes VGA, and drives both IDE/PATA and AHCI SATA disks.
+- **ByteFS** - a small flat filesystem on an ATA or SATA disk: 32 directory
   entries, full paths, no journal and no permissions. Files survive a reboot.
 - **`byte-install`** - an archinstall-style guided installer that writes an
   MBR, stage 2, the kernel, a ByteFS partition, the bundled website, and your
@@ -31,8 +35,13 @@ Source and releases: **https://github.com/withdrawment/byteos**
   Start menu, a taskbar, Notepad, My Computer, System Properties, About, a
   native Fetch window, a starfield screensaver, and a graphical command
   prompt.
+- **ByteTile** - a dwm-style tiling window manager: nine tags, tile, monocle
+  and grid layouts, a resizable master area, keyboard-only window control,
+  Super shortcuts, a built-in browser, and an editable `/bytetile.conf` for
+  gaps, borders, colours and layout.
 - **Desktop chooser** - `start-desktop` asks which desktop to run each time;
-  `start-desktop classic` and `start-desktop win95` skip the prompt.
+  `start-desktop classic`, `start-desktop win95` and `start-desktop tile`
+  skip the prompt.
 - **Linux-style shell** - `pwd`, `cd`, `mkdir`, `rmdir`, `touch`, `rm`,
   `ls`/`dir`, `lsblk`, `df`, `free`, `uname`, `date`, `uptime`, `hostname`,
   and `echo` join the existing ByteOS commands.
@@ -56,9 +65,11 @@ Source and releases: **https://github.com/withdrawment/byteos**
 QEMU with 1 GiB of RAM and four CPU cores. You can also download a release ISO
 from https://github.com/withdrawment/byteos/releases.
 
-The ISO is a legacy BIOS / CSM boot image. It works in QEMU, VirtualBox (BIOS
-mode), VMware, on a burned CD/DVD, and from Ventoy. A UEFI-only machine needs
-CSM enabled; native UEFI boot is not implemented.
+The ISO is a hybrid image: the El Torito catalog boots it from a CD/DVD, and
+an embedded MBR boots the same file from a USB stick as a hard disk. Write it
+with Rufus in DD/MBR mode, balenaEtcher, or `dd`. Enable **legacy BIOS/CSM
+boot**, **legacy USB support**, and **USB-HDD boot** in the firmware. Native
+UEFI boot, Secure Boot, and UEFI-only machines are not supported.
 
 The live environment is read-only. The disk is untouched until you run the
 installer. Useful first commands:
@@ -70,11 +81,32 @@ start-desktop
 donut
 ```
 
+## Real hardware
+
+ByteOS runs on ordinary x86_64 PCs when the firmware is configured for legacy
+boot. The supported hardware path is deliberately conservative:
+
+| Component | Supported |
+| --- | --- |
+| Firmware | Legacy BIOS / CSM. Disable Secure Boot. |
+| CPU | x86_64 with long mode; the bootloader checks CPUID and halts with a message if it is missing. |
+| Keyboard | PS/2, or a USB keyboard handled by the firmware's legacy USB emulation. |
+| Mouse | PS/2 or legacy-USB mouse; optional, the console and ByteTile do not need it. |
+| Display | VGA-compatible output. The text console uses mode 3; ByteWin 95 and ByteTile use mode 12h (640x480, 16 colours). |
+| Storage | IDE/PATA and AHCI SATA disks. Set the SATA controller to AHCI or IDE, not RAID. |
+| Boot media | CD/DVD, or a USB stick written with the hybrid ISO. The kernel does not drive USB mass storage itself. |
+| Diagnostics | COM1 at 115200 8N1 mirrors the boot console and hardware probes. |
+
+NVMe, RAID-mode SATA, native UEFI, and machines with no VGA compatibility are
+not supported yet. If no disk is listed by `lsblk`, check the SATA mode and
+cables first. If a graphical desktop cannot start, the kernel reports a VGA
+probe failure and the text console remains available.
+
 ## Guided installation
 
 The supported installer is `byte-install`. It asks for a disk, a username, a
 user password, a root password, a hostname, and a final confirmation. It then
-writes the complete system to the selected **ATA/IDE** disk.
+writes the complete system to the selected **ATA, IDE or AHCI SATA** disk.
 
 > **This erases the entire selected disk.** Use a spare disk, a USB stick, or
 > a virtual disk. Never select the disk that holds your current OS.
@@ -152,9 +184,10 @@ split is enforced by the login and `su` commands, not by the filesystem.
 ## The desktops
 
 Run `start-desktop` from the console. ByteOS asks whether to start the classic
-ByteDesktop or ByteWin 95; arrow keys select and Enter starts. The aliases
-`start-desktop classic`, `start-desktop text`, `start-desktop win95`, and
-`start-desktop gui` skip the chooser.
+ByteDesktop, ByteWin 95 or ByteTile; arrow keys select and Enter starts. The
+aliases `start-desktop classic`, `start-desktop text`, `start-desktop win95`,
+`start-desktop gui`, and `start-desktop tile` (also `tiling`, `dwm`,
+`bytetile`) skip the chooser.
 
 ![ByteOS desktop chooser](screenshots/chooser.png)
 
@@ -237,11 +270,87 @@ the ByteOS shell; Restart reboots the machine.
 
 ![ByteWin 95 command prompt](screenshots/win95-console.png)
 
+### ByteTile
+
+ByteTile is the third desktop: a keyboard-only, dwm-style tiling window
+manager drawn in the same 640x480 VGA mode 12h as ByteWin 95. Windows are
+arranged automatically and never overlap. It starts with one terminal and
+shows a key reference whenever the current tag has no windows.
+
+![ByteTile tiling two terminals](screenshots/bytetile.png)
+
+![ByteTile welcome panel](screenshots/bytetile-welcome.png)
+
+![ByteTile browser](screenshots/bytetile-browser.png)
+
+| Key | Action |
+| --- | --- |
+| `Super+Return` / `Alt+Return` | Open a terminal |
+| `Super+Space` / `Alt+p` | Launcher menu |
+| `Super+Q` / `Alt+q` | Close the focused window |
+| `Alt+j` / `Alt+k` | Focus next / previous window |
+| `Alt+Shift+j` / `Alt+Shift+k` | Move the window in the stack |
+| `Alt+h` / `Alt+l` | Shrink / grow the master area |
+| `Alt+Space` | Cycle tile, monocle and grid |
+| `Alt+f` | Toggle zoom (monocle) |
+| `Alt+1`..`Alt+9` | View a tag |
+| `Alt+Shift+1`..`Alt+Shift+9` | Move the window to a tag |
+| `Alt+Shift+C` | Open the config editor |
+| `Alt+Shift+R` | Reload `/bytetile.conf` |
+| `Alt+Shift+E` / `F12` | Quit ByteTile |
+
+`Super` is the Windows or Command key; the `Alt` aliases for the terminal,
+launcher and close shortcuts also work.
+
+The clients are Terminal, Browser, Files, System monitor, Viewer, Config
+editor and Key reference. The terminal carries the shell command set:
+`ls`/`dir`, `cd`, `pwd`, `cat`/`type`, `mkdir`, `rmdir`, `touch`, `rm`,
+`cp`, `mv`, `head`, `tail`, `wc`, `grep`, `less`/`more`, `date`, `time`,
+`uptime`, `whoami`, `id`, `hostname`, `uname`, `free`, `df`, `lsblk`,
+`env`, `ps`, `top`, `open`, `view`, `browse`, `browser`, `edit`, `config`,
+`keys`, `tags`, `history`, `echo`, `fetch`, `specs`, `memmap`, `about`,
+`version`, `tileconf`, `reboot`, `clear`/`cls`, `help`/`man` and `exit`.
+Console-only tools such as `su`, `passwd`, `byte-install`, `donut` and
+`start-desktop` explain how to reach the text console instead.
+
+The browser renders headings, paragraphs, lists, links, tables, rules and
+`<pre>` blocks. Press `1`-`9` to follow a link, `b` or Backspace to go back,
+`r` to reload, `u` to type an address, `h` for the home page, and the arrow,
+PgUp/PgDn, Home and End keys to scroll. `Esc` closes it. Files opens HTML
+pages in the browser, and `open page.html`, `browse` or `logo` work in the
+terminal.
+
+ByteTile reads `key=value` lines from `/bytetile.conf`. Missing or invalid
+keys fall back to the defaults:
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `gaps` | `5` | Outer and inner window gap in pixels |
+| `border` | `2` | Window border thickness |
+| `master` | `55` | Master area width, percent |
+| `layout` | `tile` | `tile`, `monocle` or `grid` |
+| `bar` | `18` | Top bar height |
+| `accent` | `14` | Selected tag and highlight colour, 0-15 |
+| `bar_fg` | `15` | Bar text colour |
+| `bar_bg` | `1` | Bar background colour |
+| `border_active` | `11` | Focused window border colour |
+| `border_normal` | `8` | Other window border colour |
+
+Colours accept 0-15 or names such as `cyan`, `yellow`, `navy` and `gray`.
+Press `Alt+Shift+C` inside ByteTile to edit the file, `Ctrl+S` to save and
+apply, and `Ctrl+R` to reload. On the live ISO changes live in RAM until you
+install to a disk; an installed system writes them to ByteFS and restores
+them after a reboot. `tileconf` at the shell prints the current file or the
+defaults.
+
+![ByteTile config editor](screenshots/bytetile-config.png)
+
 The text-mode browser is intentionally a small HTML subset renderer. It
 understands headings, paragraphs, lists, links, horizontal rules, rudimentary
 tables, and `<pre>` blocks. It does not run JavaScript or load CSS. External
 `http://` and `https://` links show their address and a "no network" message
-because ByteOS has no network stack.
+because ByteOS has no network stack. ByteTile runs the same renderer inside a
+native graphics client.
 
 ## Shell commands
 
@@ -252,10 +361,12 @@ because ByteOS has no network stack.
 | `specs` / `sysinfo` | CPUID, memory map, TSC, RTC, and build report |
 | `memmap` / `e820` | Raw BIOS E820 memory map |
 | `about` | Project background |
-| `start-desktop` / `desktop` | Choose ByteDesktop or ByteWin 95 |
+| `start-desktop` / `desktop` | Choose ByteDesktop, ByteWin 95 or ByteTile |
 | `start-desktop classic` | Start the text-mode ByteDesktop directly |
 | `start-desktop win95` | Start the graphical ByteWin 95 directly |
+| `start-desktop tile` | Start the ByteTile tiling window manager directly |
 | `byte-install` | Guided installation to an ATA disk |
+| `tileconf` | Print `/bytetile.conf` or the ByteTile defaults |
 | `ls` / `dir [path]` | List ByteFS files and directories |
 | `pwd` | Print the current directory |
 | `cd [path]` | Change directory; no argument goes to `/home` |
@@ -311,20 +422,22 @@ Then:
 .\build.ps1
 ```
 
-The build assembles the MBR and stage 2, embeds `website/` into the kernel,
-compiles the kernel with Clang, links it with `ld.lld`, pads the boot image so
-the kernel lands at physical `0x10000`, and writes the ISO with the project's
-own ISO9660/El Torito writer. No external ISO tool is required.
+The build assembles the MBR, stage 2 and hybrid USB MBR, embeds `website/`
+into the kernel, compiles the kernel with Clang, links it with `ld.lld`, pads
+the boot image so the kernel lands at physical `0x10000`, and writes the ISO
+with the project's own ISO9660/El Torito writer. No external ISO tool is
+required.
 
 ## Project layout
 
 ```text
 boot/boot.asm       16-bit BIOS loader, 32-bit trampoline, long-mode entry
 boot/mbr.asm        MBR and stage-2 disk loader
+boot/usbmbr.asm     hybrid USB MBR that loads the ISO boot image as a hard disk
 kernel/core.c       entry point, VGA console, kprintf, memory/string helpers
-kernel/platform.c   CPUID, E820, RTC/CMOS, PIT/TSC, PS/2 keyboard and mouse
+kernel/platform.c   CPUID, E820, RTC/CMOS, PIT/TSC, PS/2 keyboard/mouse, COM1
 kernel/ui.c         boot screen, reports, help/about, shell, desktop chooser, commands
-kernel/ata.c        ATA PIO disk driver
+kernel/ata.c        ATA PIO and native AHCI SATA disk driver
 kernel/bfs.c        ByteFS format, mount, read, write, directories
 kernel/auth.c       accounts, login, su, passwd
 kernel/install.c    byte-install wizard and disk writer
@@ -333,7 +446,8 @@ kernel/fetch_art.c  shared shaded torus ASCII art for TUI and GUI fetch
 kernel/fetch_art.h  fetch art declarations
 kernel/desktop.c    classic ByteDesktop, file explorer, terminal
 kernel/win95.c      VGA mode 12h ByteWin 95 graphical desktop
-kernel/font8x16.h   embedded 8x16 VGA font used by ByteWin 95
+kernel/tilewm.c     ByteTile tiling window manager and config editor
+kernel/font8x16.h   embedded 8x16 VGA font used by ByteWin 95 and ByteTile
 kernel/browser.c    local HTML browser
 kernel/editor.c     HTML editor
 kernel/donut.c      z-buffered spinning ASCII torus
@@ -345,15 +459,19 @@ run.ps1             boot the ISO in QEMU
 
 ## Boot path
 
-1. BIOS finds the El Torito catalog (or the MBR) and loads the 512-byte boot
-   sector at physical `0x7C00`.
-2. Stage 2 enables A20, collects the E820 memory map, switches to VGA text
-   mode 80x25, and identity-maps the first 1 GiB with 2 MiB pages.
+1. BIOS finds the El Torito catalog, an installed-disk MBR, or the hybrid USB
+   MBR, and loads the boot image at physical `0x7C00`. The USB MBR loads the
+   whole image, including the kernel, from the ISO layout.
+2. Stage 2 initialises COM1 diagnostics, checks CPUID and long-mode support,
+   enables and tests A20 (with a BIOS fallback), collects the E820 memory map,
+   switches to VGA text mode 80x25, and identity-maps the first 1 GiB with
+   2 MiB pages.
 3. It enables PAE, long mode, and SSE state saving, then jumps to the flat
    kernel at `0x10000` on a stack at `0x700000`.
-4. The kernel zeroes `.bss`, detects the CPU, reads the memory map, calibrates
-   the TSC with PIT channel 2, probes ATA disks, mounts ByteFS if the boot
-   device is an installed disk, and starts the login or shell.
+4. The kernel zeroes `.bss` at `0x100000`, probes VGA and the keyboard, detects
+   the CPU, reads the memory map, calibrates the TSC with PIT channel 2 (with a
+   CPUID 0x15/0x16 fallback), probes PIO and AHCI disks, mounts ByteFS if the
+   boot device is an installed disk, and starts the login or shell.
 
 The ISO writer lays out the Primary Volume Descriptor, Boot Record Volume
 Descriptor, terminator, boot catalog, boot image, root directory, path tables,
@@ -365,8 +483,10 @@ being zero-padded; the builder follows that layout.
 
 ByteOS is still a small system, not a general-purpose OS:
 
-- BIOS/CSM boot only; no UEFI.
-- ATA PIO only; no AHCI, NVMe, or USB storage in the installer.
+- BIOS/CSM boot only; no native UEFI or Secure Boot.
+- ATA PIO and AHCI SATA disks. NVMe, RAID-mode SATA, and USB mass storage are
+  not driven by the kernel; USB sticks work only as firmware-emulated boot
+  media.
 - No networking. External links in the browser show their address.
 - No interrupts, scheduler, user mode, or virtual memory beyond the initial
   identity map. Input is polled.
@@ -376,8 +496,8 @@ ByteOS is still a small system, not a general-purpose OS:
   directories, and no permissions or journal.
 
 Natural next steps are an IDT with timer and keyboard interrupts, a physical
-page allocator, a heap, a richer filesystem, ATA DMA/AHCI, networking, and
-eventually UEFI boot.
+page allocator, a heap, a richer filesystem, networking, and eventually UEFI
+boot.
 
 ## Links
 

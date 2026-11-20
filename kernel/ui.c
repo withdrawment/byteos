@@ -94,9 +94,10 @@ static void print_specs_summary(void)
     console_set_attr(C_LABEL);
     kprintf("  SYS  : ");
     console_set_attr(C_VALUE);
-    kprintf("x86_64 long mode  |  VGA 80x25  |  %s",
+    kprintf("x86_64 long mode  |  %s  |  %s",
+            vga_probe() ? "VGA 80x25" : "no VGA",
             (g_boot_ok && (g_boot->boot_flags & BOOT_FLAG_DISK))
-                ? "BIOS MBR + ByteFS" : "BIOS El Torito");
+                ? "BIOS MBR + ByteFS" : "BIOS El Torito/USB");
     if (g_hypervisor)
         kprintf("  |  VM");
     console_putc('\n');
@@ -155,17 +156,18 @@ void help_screen(void)
     vga_puts_at(4, 2, "SYSTEM", C_ACC);
     vga_puts_at(4, 41, "FILES / SHELL", C_ACC);
 
-    static const char *sys_cmd[15] = {
+    static const char *sys_cmd[16] = {
         "help", "fetch", "start-desktop", "byte-install", "specs",
         "memmap", "about", "donut", "logo", "clear",
-        "reboot", "version", "lsblk", "df", "free"
+        "reboot", "version", "lsblk", "df", "free", "tileconf"
     };
-    static const char *sys_desc[15] = {
+    static const char *sys_desc[16] = {
         "show this command list", "system summary", "choose a desktop",
         "install to an ATA disk", "CPU, memory report", "BIOS E820 map",
         "about ByteOS", "spinning ASCII donut", "redraw the boot screen",
         "clear the screen", "warm restart", "version banner",
-        "list block devices", "filesystem usage", "memory usage"
+        "list block devices", "filesystem usage", "memory usage",
+        "ByteTile config file"
     };
     static const char *sh_cmd[15] = {
         "ls / dir", "cd", "pwd", "mkdir", "rmdir",
@@ -180,14 +182,15 @@ void help_screen(void)
         "print hostname", "print arguments"
     };
 
-    for (int i = 0; i < 15; i++) {
+    for (int i = 0; i < 16; i++) {
         help_cell(5 + i, 2, sys_cmd[i], sys_desc[i]);
-        help_cell(5 + i, 41, sh_cmd[i], sh_desc[i]);
+        if (i < 15)
+            help_cell(5 + i, 41, sh_cmd[i], sh_desc[i]);
     }
 
     console_set_attr(C_DARK);
     console_goto(21, 0);
-    kprintf("  Start-desktop offers ByteDesktop (text) or ByteWin 95 (graphics).\n");
+    kprintf("  Start-desktop offers ByteDesktop, ByteWin 95 or ByteTile.\n");
     kprintf("  Commands are case-insensitive. \"sysinfo\" aliases \"specs\".\n");
     console_set_attr(VGA_ATTR(LIGHT_GRAY, BLACK));
 }
@@ -317,7 +320,8 @@ void specs_screen(void)
     console_set_attr(C_LABEL);
     kprintf("  Video      : ");
     console_set_attr(C_VALUE);
-    kprintf("VGA text 80x25, mode 3, 16 colours\n");
+    kprintf(vga_probe() ? "VGA text 80x25, mode 3, 16 colours\n"
+                        : "No VGA-compatible adapter detected\n");
 
     console_set_attr(C_LABEL);
     kprintf("  Timer      : ");
@@ -426,7 +430,7 @@ void about_screen(void)
     kprintf("  brings the CPU into long mode with identity-mapped\n");
     kprintf("  2 MiB pages, and talks directly to VGA and PS/2.\n\n");
     kprintf("  ByteOS 0.2 adds ByteFS, an ATA installer, fetch,\n");
-    kprintf("  ByteDesktop, the ByteWin 95 graphical desktop, a\n");
+    kprintf("  ByteDesktop, ByteWin 95 and ByteTile desktops, a\n");
     kprintf("  file explorer, an HTML editor and a local browser\n");
     kprintf("  that reads the bundled project website.\n\n");
     console_set_attr(C_ACC);
@@ -974,27 +978,34 @@ static int desktop_chooser(void)
         console_clear(VGA_ATTR(LIGHT_GRAY, BLACK));
         draw_topbar();
         centered(2, "CHOOSE A DESKTOP", C_ACC);
-        centered(3, "Both desktops use the same ByteOS shell, files and apps.", C_DARK);
+        centered(3, "All desktops share the same ByteOS shell, files and apps.", C_DARK);
 
-        option_box(6, 4, 34, "1  Classic ByteDesktop",
-                   "80x25 text desktop", "Keyboard driven, lightweight", selected == 0);
-        option_box(6, 42, 34, "2  ByteWin 95",
-                   "640x480 graphical desktop", "Mouse, windows, icons", selected == 1);
+        option_box(6, 3, 24, "1  ByteDesktop",
+                   "80x25 text desktop", "Keyboard driven", selected == 0);
+        option_box(6, 27, 24, "2  ByteWin 95",
+                   "640x480 graphical GUI", "Mouse, windows, icons", selected == 1);
+        option_box(6, 51, 24, "3  ByteTile",
+                   "Tiling window manager", "dwm-style, edit config", selected == 2);
 
         centered(13, "ByteDesktop keeps the original TUI applications.", C_DIM);
-        centered(14, "ByteWin 95 is a real VGA GUI, not a text-mode skin.", C_DIM);
+        centered(14, "ByteWin 95 is a real VGA GUI with windows and icons.", C_DIM);
+        centered(15, "ByteTile tiles windows with tags and /bytetile.conf.", C_DIM);
 
         vga_fill_row(24, C_BAR);
-        vga_puts_at(24, 2, "Up/Down select   Enter start   Esc cancel", C_BAR);
+        vga_puts_at(24, 2, "Up/Down or Tab select   Enter start   Esc cancel", C_BAR);
         vga_puts_at(24, 65, "desktop", C_BAR);
 
         int key = kbd_waitkey();
-        if (key == KEY_UP || key == KEY_DOWN || key == '\t')
-            selected ^= 1;
+        if (key == KEY_UP)
+            selected = (selected + 2) % 3;
+        else if (key == KEY_DOWN || key == '\t')
+            selected = (selected + 1) % 3;
         else if (key == '1')
             return 0;
         else if (key == '2')
             return 1;
+        else if (key == '3')
+            return 2;
         else if (key == '\n' || key == ' ')
             return selected;
         else if (key == 27)
@@ -1047,6 +1058,9 @@ static void run_command(const char *raw)
             else if (str_eq_ci(arg, "win95") || str_eq_ci(arg, "gui") ||
                      str_eq_ci(arg, "win"))
                 choice = 1;
+            else if (str_eq_ci(arg, "tile") || str_eq_ci(arg, "tiling") ||
+                     str_eq_ci(arg, "dwm") || str_eq_ci(arg, "bytetile"))
+                choice = 2;
             else
                 choice = desktop_chooser();
 
@@ -1054,6 +1068,13 @@ static void run_command(const char *raw)
                 if (win95_desktop() != 0) {
                     console_set_attr(VGA_ATTR(LIGHT_RED, BLACK));
                     kprintf("\nByteWin 95 could not start; using ByteDesktop instead.\n");
+                    console_set_attr(VGA_ATTR(LIGHT_GRAY, BLACK));
+                    desktop();
+                }
+            } else if (choice == 2) {
+                if (tilewm_desktop() != 0) {
+                    console_set_attr(VGA_ATTR(LIGHT_RED, BLACK));
+                    kprintf("\nByteTile could not start; using ByteDesktop instead.\n");
                     console_set_attr(VGA_ATTR(LIGHT_GRAY, BLACK));
                     desktop();
                 }
@@ -1116,6 +1137,8 @@ static void run_command(const char *raw)
         auth_passwd();
     } else if (str_eq_ci(p, "byte-install")) {
         install_wizard();
+    } else if (str_eq_ci(p, "tileconf")) {
+        tile_config_info();
     } else if (str_eq_ci(p, "exit")) {
         if (g_allow_exit)
             g_exit_requested = 1;

@@ -21,6 +21,8 @@ SECTIONS
         *(.data*)
     }
 
+    . = 0x100000;
+
     .bss : ALIGN(16)
     {
         __bss_start = .;
